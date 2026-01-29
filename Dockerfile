@@ -2,42 +2,57 @@
 FROM node:18-alpine AS base
 
 # Install system dependencies for native modules
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat git
 
 # Install dependencies only when needed
 FROM base AS deps
 WORKDIR /app
 
-# Copy package files for workspace
+# Build argument for GitHub token (for GitHub Packages)
+ARG GITHUB_TOKEN
+
+# Copy package files
 COPY package*.json ./
-COPY apps/server/package*.json ./apps/server/
-COPY packages/shared/package.json ./packages/shared/
+
+# Configure npm for GitHub Packages
+RUN echo "@sbaka:registry=https://npm.pkg.github.com" >> .npmrc && \
+    echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> .npmrc
 
 # Install production dependencies
-RUN npm ci --only=production --workspace=apps/server && npm cache clean --force
+RUN npm ci --only=production && npm cache clean --force
+
+# Remove .npmrc to not leak token
+RUN rm -f .npmrc
 
 # Development dependencies for build
 FROM base AS dev-deps
 WORKDIR /app
 
-# Copy package files for workspace
+# Build argument for GitHub token
+ARG GITHUB_TOKEN
+
+# Copy package files
 COPY package*.json ./
-COPY apps/server/package*.json ./apps/server/
-COPY packages/shared/package.json ./packages/shared/
+
+# Configure npm for GitHub Packages
+RUN echo "@sbaka:registry=https://npm.pkg.github.com" >> .npmrc && \
+    echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> .npmrc
 
 # Install all dependencies including dev dependencies
 RUN npm ci && npm cache clean --force
+
+# Remove .npmrc to not leak token
+RUN rm -f .npmrc
 
 # Build the application
 FROM dev-deps AS builder
 WORKDIR /app
 
 # Copy source code
-COPY packages/shared ./packages/shared
-COPY apps/server ./apps/server
+COPY . .
 
-# Build shared package first, then server
-RUN npm run build:shared && npm run build:server
+# Build the server
+RUN npm run build
 
 # Production image
 FROM base AS runner
@@ -52,13 +67,12 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nodejs
 
 # Copy built application and dependencies
-COPY --from=builder --chown=nodejs:nodejs /app/apps/server/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/apps/server/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
 
 # Copy database migration files (required by Drizzle)
-COPY --from=builder --chown=nodejs:nodejs /app/apps/server/db ./db
+COPY --from=builder --chown=nodejs:nodejs /app/db ./db
 
 # Create logs directory with proper permissions
 RUN mkdir -p logs && chown nodejs:nodejs logs
