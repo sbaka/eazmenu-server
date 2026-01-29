@@ -3,7 +3,7 @@ import { z } from "zod";
 import { authenticate, checkRestaurantOwnership, checkCategoryOwnership, checkMenuItemOwnership } from "../middleware";
 import { uploadMenuItemImage, validateAndUploadToSupabase, deleteUploadedFile, getFilenameFromUrl } from "../middleware/upload";
 import { storage } from "../storage";
-import { insertMenuItemSchema, menuItemIngredients } from "@eazmenu/shared";
+import { insertMenuItemSchema, menuItemIngredients } from "@sbaka/shared";
 import { db } from "@db";
 import { eq } from "drizzle-orm";
 import logger, { sanitizeError } from "../logger";

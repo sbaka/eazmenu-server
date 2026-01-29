@@ -1,5 +1,5 @@
 import { db } from "@db";
-import { orders } from "@eazmenu/shared";
+import { orders } from "@sbaka/shared";
 import { eq, and, lt, ne, sql } from "drizzle-orm";
 import logger from "../logger";
 

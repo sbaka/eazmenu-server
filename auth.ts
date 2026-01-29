@@ -1,7 +1,7 @@
 import { Express, Request, Response, NextFunction, RequestHandler } from "express";
 import { createClient, SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js";
 import { storage } from "./storage";
-import { Merchant as SelectUser } from "@eazmenu/shared";
+import { Merchant as SelectUser } from "@sbaka/shared";
 import logger, { sanitizeError } from "./logger";
 
 // Extend Express types for user

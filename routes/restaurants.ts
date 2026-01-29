@@ -3,7 +3,7 @@ import { authenticate } from "../middleware";
 import { storage } from "../storage";
 import { rateLimits } from "../security";
 import logger, { sanitizeError } from "../logger";
-import { insertRestaurantSchema, themeConfigSchema } from "@eazmenu/shared";
+import { insertRestaurantSchema, themeConfigSchema } from "@sbaka/shared";
 import { z } from "zod";
 
 const router = Router();

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { authenticate, checkRestaurantOwnership, checkCategoryOwnership } from "../middleware";
 import { storage } from "../storage";
 import { rateLimits } from "../security";
-import { insertCategorySchema } from "@eazmenu/shared";
+import { insertCategorySchema } from "@sbaka/shared";
 import logger, { sanitizeError } from "../logger";
 
 const router = Router();

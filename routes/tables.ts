@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 import { authenticate } from "../middleware";
 import { storage } from "../storage";
 import { rateLimits } from "../security";
-import { insertTableSchema, restaurants, Table, tables, TableWithQrCodeImage } from "@eazmenu/shared";
+import { insertTableSchema, restaurants, Table, tables, TableWithQrCodeImage } from "@sbaka/shared";
 import { db } from "@db";
 import logger, { sanitizeError } from "../logger";
 import { generateTableHashId } from "../qr-utils";

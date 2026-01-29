@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "@db";
-import { restaurants, categories, menuItems, tables, languages, orders, menuItemTranslations, categoryTranslations } from "@eazmenu/shared";
+import { restaurants, categories, menuItems, tables, languages, orders, menuItemTranslations, categoryTranslations } from "@sbaka/shared";
 import logger, { sanitizeError } from "./logger";
 import { authenticateSupabase } from "./auth";
 

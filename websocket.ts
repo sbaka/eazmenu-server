@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { Server, IncomingMessage } from "http";
-import { tables, restaurants } from "@eazmenu/shared";
+import { tables, restaurants } from "@sbaka/shared";
 import { db } from "@db";
 import { eq, and } from "drizzle-orm";
 import logger, { sanitizeError } from "./logger";

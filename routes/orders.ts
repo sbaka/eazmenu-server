@@ -4,7 +4,7 @@ import { authenticate } from "../middleware";
 import { getTableSessionId } from "../middleware/session";
 import { storage } from "../storage";
 import { rateLimits } from "../security";
-import { tables, orders, restaurants, menuItems } from "@eazmenu/shared";
+import { tables, orders, restaurants, menuItems } from "@sbaka/shared";
 import { db } from "@db";
 import logger, { sanitizeError } from "../logger";
 

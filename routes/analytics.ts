@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import logger, { sanitizeError } from "../logger";
-import { MENU_ITEM_EVENT_VALUES } from "@eazmenu/shared";
+import { MENU_ITEM_EVENT_VALUES } from "@sbaka/shared";
 
 const router = Router();
 

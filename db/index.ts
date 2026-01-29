@@ -1,6 +1,6 @@
 import pg from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import * as schema from "@eazmenu/shared";
+import * as schema from "@sbaka/shared";
 import { config } from 'dotenv';
 
 // Load environment variables from .env file (for local development)

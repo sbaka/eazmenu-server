@@ -8,7 +8,7 @@ import {
   ingredientTranslations, 
   insertIngredientSchema,
   INGREDIENT_CATEGORY_VALUES
-} from "@eazmenu/shared";
+} from "@sbaka/shared";
 import logger, { sanitizeError } from "../logger";
 
 const router = Router();

@@ -32,7 +32,7 @@ import {
   InsertRestaurant,
   restaurants,
   OrderWithItemsResponse,
-} from "@eazmenu/shared";
+} from "@sbaka/shared";
 
 interface CreateOrderWithItemsParams {
   orderData: Omit<InsertOrder, "id">;
@@ -1021,7 +1021,7 @@ class DatabaseStorage implements IStorage {
   }
 
   // Get menu by table QR code with comprehensive language support
-  async getMenuByTableQrCode(qrCode: string, languageCode?: string): Promise<import('@eazmenu/shared').CustomerMenuResponse> {
+  async getMenuByTableQrCode(qrCode: string, languageCode?: string): Promise<import('@sbaka/shared').CustomerMenuResponse> {
     try {
       // Use the QR code service to find the table
       const lookupResult = await findTableByQrCode(qrCode);

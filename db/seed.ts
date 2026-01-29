@@ -1,5 +1,5 @@
 import { db } from "./index";
-import { ingredients, type IngredientCategory } from "@eazmenu/shared";
+import { ingredients, type IngredientCategory } from "@sbaka/shared";
 
 // Common ingredients organized by category
 const SEED_INGREDIENTS: Array<{ name: string; category: IngredientCategory; isAllergen?: boolean }> = [

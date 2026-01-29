@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import logger, { sanitizeError } from "../logger";
-import type { CustomerMenuResponse } from "@eazmenu/shared";
+import type { CustomerMenuResponse } from "@sbaka/shared";
 
 // Import services
 import { 

@@ -14,7 +14,7 @@ import {
   ingredients,
   ingredientTranslations,
   restaurants,
-} from "@eazmenu/shared";
+} from "@sbaka/shared";
 import { db } from "@db";
 import { eq, and, inArray } from "drizzle-orm";
 import { translationService } from "./services/translation";

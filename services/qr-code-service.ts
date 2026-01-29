@@ -1,5 +1,5 @@
 import { db } from "@db";
-import { tables } from "@eazmenu/shared";
+import { tables } from "@sbaka/shared";
 import { eq, and } from "drizzle-orm";
 import { generateTableHashId, getQrCodeType, parseLegacyQrCode, type QrCodeType } from "../qr-utils";
 import logger, { sanitizeError } from "../logger";
