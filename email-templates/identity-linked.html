@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Login Method Added - Eazmenu</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333333;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .email-header {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      padding: 32px 24px;
+      text-align: center;
+    }
+    .email-header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .email-body {
+      padding: 32px 24px;
+    }
+    .email-body h2 {
+      color: #1f2937;
+      margin: 0 0 16px 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    .email-body p {
+      color: #4b5563;
+      margin: 0 0 16px 0;
+      font-size: 16px;
+    }
+    .info-box {
+      background-color: #f3f4f6;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .info-box p {
+      margin: 4px 0;
+      font-size: 14px;
+      color: #4b5563;
+    }
+    .success-box {
+      background-color: #d1fae5;
+      border-left: 4px solid #10b981;
+      border-radius: 4px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .success-box p {
+      color: #065f46;
+      margin: 0;
+      font-size: 14px;
+    }
+    .security-box {
+      background-color: #fee2e2;
+      border-left: 4px solid #ef4444;
+      border-radius: 4px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .security-box p {
+      color: #991b1b;
+      margin: 0;
+      font-size: 14px;
+    }
+    .security-box a {
+      color: #991b1b;
+    }
+    .email-footer {
+      background-color: #f9fafb;
+      padding: 24px;
+      text-align: center;
+      border-top: 1px solid #e5e7eb;
+    }
+    .email-footer p {
+      color: #6b7280;
+      font-size: 12px;
+      margin: 4px 0;
+    }
+    .email-footer a {
+      color: #6366f1;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div style="padding: 24px;">
+    <div class="email-container">
+      <div class="email-header">
+        <h1>Eazmenu</h1>
+      </div>
+      <div class="email-body">
+        <h2>🔗 New Login Method Added</h2>
+        <p>Hi {{ .Email }},</p>
+        <p>Good news! A new way to sign in has been linked to your Eazmenu account. This makes accessing your account even easier.</p>
+        <div class="info-box">
+          <p><strong>Linked at:</strong> {{ .SentAt }}</p>
+        </div>
+        <div class="success-box">
+          <p>You can now sign in using this new method. Enjoy the convenience!</p>
+        </div>
+        <div class="security-box">
+          <p><strong>Didn't add this login method?</strong> Your account may be compromised. Remove the linked identity and change your password immediately. Contact support at <a href="mailto:contact@eazmenu.com">contact@eazmenu.com</a>.</p>
+        </div>
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+          <p class="small-text" style="color: #6b7280;">🔒 <strong>Security Tip:</strong> Eazmenu will never ask you for your password or social login credentials via email. Always link accounts through our official website only.</p>
+        </div>
+      </div>
+      <div class="email-footer">
+        <p>© 2026 Eazmenu. All rights reserved.</p>
+        <p>Questions? Contact us at <a href="mailto:contact@eazmenu.com">contact@eazmenu.com</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

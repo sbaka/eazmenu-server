@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@eazmenu/shared": ["../../packages/shared/src"],
+      "@db": ["./db"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "references": [
+    {
+      "path": "../../packages/shared"
+    }
+  ]
+}

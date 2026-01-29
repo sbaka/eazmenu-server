@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1755427333495,
+      "tag": "0000_lame_power_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1755805144875,
+      "tag": "0001_yielding_kabuki",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766828040795,
+      "tag": "0002_last_gunslinger",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1766857227048,
+      "tag": "0003_smooth_hardball",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1766940086526,
+      "tag": "0004_empty_whiplash",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1767653398199,
+      "tag": "0005_add-restaurant-fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1769026294748,
+      "tag": "0006_add-allergens-theme-analytics",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1769335200000,
+      "tag": "0008_add-merchant-profile-fields",
+      "breakpoints": true
+    }
+  ]
+}
