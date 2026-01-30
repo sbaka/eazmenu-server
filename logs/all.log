@@ -3753,3 +3753,31 @@
 2026-01-28 20:18:22:1822 [32minfo[39m: [32mWebSocket connection closed[39m
 2026-01-28 20:18:22:1822 [32minfo[39m: [32mWebSocket connection established[39m
 2026-01-28 20:19:31:1931 [32minfo[39m: [32mWebSocket connection closed[39m
+2026-01-30 18:36:43:3643 [32minfo[39m: [32mSupabase client initialized for authentication[39m
+2026-01-30 18:36:43:3643 [32minfo[39m: [32m✅ Rate limiting is ENABLED for production/staging environment[39m
+2026-01-30 18:36:43:3643 [33mwarn[39m: [33mSTRIPE_SECRET_KEY not configured. Payment features will be disabled.[39m
+2026-01-30 18:36:43:3643 [32minfo[39m: [32mStarting database schema setup...[39m
+2026-01-30 18:36:44:3644 [32minfo[39m: [32mDatabase "postgres" already exists[39m
+2026-01-30 18:36:44:3644 [32minfo[39m: [32mSynchronizing database schema...[39m
+2026-01-30 18:36:44:3644 [33mwarn[39m: [33mSchema push failed, trying migration files...[39m
+2026-01-30 18:36:45:3645 [33mwarn[39m: [33mMigration also failed, verifying database connection...[39m
+2026-01-30 18:36:46:3646 [32minfo[39m: [32mDatabase connection verified - schema may already exist[39m
+2026-01-30 18:36:46:3646 [32minfo[39m: [32mDatabase migrations completed successfully[39m
+2026-01-30 18:36:46:3646 [32minfo[39m: [32mSupabase authentication configured[39m
+2026-01-30 18:36:46:3646 [32minfo[39m: [32mStarting order cleanup worker (interval: 60s, expiry: 10min)[39m
+2026-01-30 18:36:46:3646 [32minfo[39m: [32mServer running on port 3000[39m
+2026-01-30 18:36:48:3648 [32minfo[39m: [32mReceived SIGINT. Starting graceful shutdown...[39m
+2026-01-30 18:43:19:4319 [32minfo[39m: [32mSupabase client initialized for authentication[39m
+2026-01-30 18:43:19:4319 [32minfo[39m: [32m✅ Rate limiting is ENABLED for production/staging environment[39m
+2026-01-30 18:43:19:4319 [33mwarn[39m: [33mSTRIPE_SECRET_KEY not configured. Payment features will be disabled.[39m
+2026-01-30 18:43:19:4319 [32minfo[39m: [32mStarting database schema setup...[39m
+2026-01-30 18:43:20:4320 [32minfo[39m: [32mDatabase "postgres" already exists[39m
+2026-01-30 18:43:20:4320 [32minfo[39m: [32mSynchronizing database schema...[39m
+2026-01-30 18:43:20:4320 [33mwarn[39m: [33mSchema push failed, trying migration files...[39m
+2026-01-30 18:43:20:4320 [33mwarn[39m: [33mMigration also failed, verifying database connection...[39m
+2026-01-30 18:43:21:4321 [32minfo[39m: [32mDatabase connection verified - schema may already exist[39m
+2026-01-30 18:43:21:4321 [32minfo[39m: [32mDatabase migrations completed successfully[39m
+2026-01-30 18:43:21:4321 [32minfo[39m: [32mSupabase authentication configured[39m
+2026-01-30 18:43:21:4321 [32minfo[39m: [32mStarting order cleanup worker (interval: 60s, expiry: 10min)[39m
+2026-01-30 18:43:21:4321 [32minfo[39m: [32mServer running on port 3000[39m
+2026-01-30 18:43:22:4322 [32minfo[39m: [32mReceived SIGINT. Starting graceful shutdown...[39m

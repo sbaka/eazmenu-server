@@ -15,7 +15,7 @@
     "db:init": "tsx db/init-standalone.ts"
   },
   "dependencies": {
-    "@sbaka/shared": "1.0.3",
+    "@sbaka/shared": "1.0.5",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",
     "@supabase/supabase-js": "^2.89.0",
