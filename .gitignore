@@ -2,3 +2,6 @@
 .DS_Store
 .env
 .env.*
+dist/index.js
+.DS_Store
+logs/

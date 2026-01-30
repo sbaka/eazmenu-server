@@ -140,7 +140,7 @@ Or use Render's one-off job feature.
 
 **Fix**:
 1. Verify package is published: https://github.com/sbaka?tab=packages
-2. Check package name is `@sbaka/shared` (not `@eazmenu/shared`)
+2. Check package name is `@sbaka/shared` (not `@sbaka/shared`)
 3. Verify you pushed the package to GitHub Packages
 
 ### App Crashes on Startup

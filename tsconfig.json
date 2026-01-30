@@ -14,14 +14,11 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@eazmenu/shared": ["../../packages/shared/src"],
+      "@sbaka/shared": ["../../packages/shared/src"],
       "@db": ["./db"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "references": [
-    {
-      "path": "../../packages/shared"
-    }
   ]
 }

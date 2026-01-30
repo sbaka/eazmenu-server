@@ -1052,7 +1052,7 @@ class DatabaseStorage implements IStorage {
       }
       
       // Get all available languages for this restaurant
-      const availableLanguages = await db.query.languages.findMany({
+      let availableLanguages = await db.query.languages.findMany({
         where: and(
           eq(languages.restaurantId, finalTable.restaurantId),
           eq(languages.active, true)
@@ -1060,8 +1060,18 @@ class DatabaseStorage implements IStorage {
         orderBy: [desc(languages.isPrimary), languages.name],
       });
       
+      // If no languages exist, create a default English language
       if (availableLanguages.length === 0) {
-        throw new Error("NO_LANGUAGES_AVAILABLE");
+        const [defaultLanguage] = await db.insert(languages).values({
+          code: "en",
+          name: "English",
+          active: true,
+          isPrimary: true,
+          restaurantId: finalTable.restaurantId
+        }).returning();
+        
+        availableLanguages = [defaultLanguage];
+        logger.info(`Created default English language for restaurant ${finalTable.restaurantId}`);
       }
       
       // Determine target language
