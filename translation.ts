@@ -12,7 +12,6 @@ import {
   menuItemTranslations,
   categoryTranslations,
   ingredients,
-  ingredientTranslations,
   restaurants,
 } from "@sbaka/shared";
 import { db } from "@db";
@@ -179,7 +178,7 @@ export async function createLanguage(req: Request, res: Response) {
     }
 
     // Get restaurantId from the URL params (validated by checkRestaurantOwnership middleware)
-    const restaurantId = parseInt(req.params.restaurantId);
+    const restaurantId = parseInt(req.params.restaurantId as string);
 
     const validatedData = insertLanguageSchema.parse({
       ...req.body,
@@ -190,7 +189,7 @@ export async function createLanguage(req: Request, res: Response) {
     res.status(201).json(language);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: error.errors });
+      return res.status(400).json({ errors: (error as z.ZodError).issues });
     }
     logger.error(`Error creating language: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
@@ -206,7 +205,7 @@ export async function getLanguages(req: Request, res: Response) {
     }
 
     // Get restaurantId from the URL params (validated by checkRestaurantOwnership middleware)
-    const restaurantId = parseInt(req.params.restaurantId);
+    const restaurantId = parseInt(req.params.restaurantId as string);
 
     const languages = await storage.getLanguagesByRestaurantId(restaurantId);
     res.status(200).json(languages);
@@ -225,8 +224,8 @@ export async function updateLanguage(req: Request, res: Response) {
     }
 
     // Get restaurantId from the URL params (validated by checkRestaurantOwnership middleware)
-    const restaurantId = parseInt(req.params.restaurantId);
-    const languageId = parseInt(req.params.id);
+    const restaurantId = parseInt(req.params.restaurantId as string);
+    const languageId = parseInt(req.params.id as string);
     if (isNaN(languageId)) {
       return res.status(400).json({ message: "Invalid language ID" });
     }
@@ -248,7 +247,7 @@ export async function updateLanguage(req: Request, res: Response) {
     res.status(200).json(language);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: error.errors });
+      return res.status(400).json({ errors: (error as z.ZodError).issues });
     }
     logger.error(`Error updating language: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
@@ -264,8 +263,8 @@ export async function deleteLanguage(req: Request, res: Response) {
     }
 
     // Get restaurantId from the URL params (validated by checkRestaurantOwnership middleware)
-    const restaurantId = parseInt(req.params.restaurantId);
-    const languageId = parseInt(req.params.id);
+    const restaurantId = parseInt(req.params.restaurantId as string);
+    const languageId = parseInt(req.params.id as string);
     if (isNaN(languageId)) {
       return res.status(400).json({ message: "Invalid language ID" });
     }
@@ -305,7 +304,7 @@ export async function createMenuItemTranslation(req: Request, res: Response) {
     res.status(201).json(translation);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: error.errors });
+      return res.status(400).json({ errors: (error as z.ZodError).issues });
     }
     logger.error(`Error creating menu item translation: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
@@ -320,7 +319,7 @@ export async function getMenuItemTranslations(req: Request, res: Response) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const menuItemId = parseInt(req.params.menuItemId);
+    const menuItemId = parseInt(req.params.menuItemId as string);
     if (isNaN(menuItemId)) {
       return res.status(400).json({ message: "Invalid menu item ID" });
     }
@@ -355,7 +354,7 @@ export async function createCategoryTranslation(req: Request, res: Response) {
     res.status(201).json(translation);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: error.errors });
+      return res.status(400).json({ errors: (error as z.ZodError).issues });
     }
     logger.error(`Error creating category translation: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
@@ -365,7 +364,7 @@ export async function createCategoryTranslation(req: Request, res: Response) {
 // Route handler for getting category translations (PUBLIC - no auth required for reads)
 export async function getCategoryTranslations(req: Request, res: Response) {
   try {
-    const categoryId = parseInt(req.params.categoryId);
+    const categoryId = parseInt(req.params.categoryId as string);
     if (isNaN(categoryId)) {
       return res.status(400).json({ message: "Invalid category ID" });
     }
@@ -476,7 +475,7 @@ export async function autoTranslate(req: Request, res: Response) {
 export async function getAllRestaurantTranslations(req: Request, res: Response) {
   try {
     // Get restaurantId from the URL params (validated by checkRestaurantOwnership middleware)
-    const restaurantId = parseInt(req.params.restaurantId);
+    const restaurantId = parseInt(req.params.restaurantId as string);
 
     // Get language code from query parameter
     const langCode = req.query.lang as string;

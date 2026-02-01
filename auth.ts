@@ -1,8 +1,32 @@
 import { Express, Request, Response, NextFunction, RequestHandler } from "express";
-import { createClient, SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { storage } from "./storage";
 import { Merchant as SelectUser } from "@sbaka/shared";
 import logger, { sanitizeError } from "./logger";
+
+// Type for Supabase user - define our own interface since the package types are inconsistent
+interface SupabaseUser {
+  id: string;
+  email?: string;
+  email_confirmed_at?: string;
+  phone?: string;
+  confirmed_at?: string;
+  last_sign_in_at?: string;
+  app_metadata: Record<string, unknown>;
+  user_metadata: Record<string, unknown>;
+  identities?: Array<{
+    id: string;
+    user_id: string;
+    identity_data?: Record<string, unknown>;
+    provider: string;
+    created_at?: string;
+    last_sign_in_at?: string;
+  }>;
+  created_at: string;
+  updated_at?: string;
+}
+
+type UserIdentity = NonNullable<SupabaseUser['identities']>[number];
 
 // Extend Express types for user
 declare global {
@@ -56,7 +80,7 @@ function getPrimaryProvider(supabaseUser: SupabaseUser): string {
   // Check identities for OAuth providers
   const oauthProviders = ['google', 'azure', 'apple', 'github', 'facebook'];
   const oauthIdentity = supabaseUser.identities?.find(
-    (identity) => oauthProviders.includes(identity.provider)
+    (identity: UserIdentity) => oauthProviders.includes(identity.provider)
   );
 
   return oauthIdentity?.provider ?? appProvider ?? 'email';
@@ -73,7 +97,7 @@ function getIdentityData(supabaseUser: SupabaseUser): Record<string, unknown> {
 
   const oauthProviders = ['google', 'azure', 'apple', 'github', 'facebook'];
   const oauthIdentity = supabaseUser.identities.find(
-    (identity) => oauthProviders.includes(identity.provider)
+    (identity: UserIdentity) => oauthProviders.includes(identity.provider)
   );
 
   const primaryIdentity = oauthIdentity ?? supabaseUser.identities[0];
@@ -169,7 +193,7 @@ export const authenticateSupabase: RequestHandler = async (req: Request, res: Re
     }
 
     // Verify the JWT with Supabase
-    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+    const { data: { user: supabaseUser }, error } = await (supabase.auth as any).getUser(token);
 
     if (error || !supabaseUser) {
       logger.warn("Invalid or expired token", { error: error?.message });
@@ -229,7 +253,7 @@ export const optionalAuthenticateSupabase: RequestHandler = async (req: Request,
       return next();
     }
 
-    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+    const { data: { user: supabaseUser }, error } = await (supabase.auth as any).getUser(token);
 
     if (!error && supabaseUser) {
       req.supabaseUser = supabaseUser;
@@ -330,7 +354,7 @@ export async function verifySupabaseToken(token: string): Promise<SelectUser | n
   }
 
   try {
-    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser(token);
+    const { data: { user: supabaseUser }, error } = await (supabase.auth as any).getUser(token);
 
     if (error || !supabaseUser) {
       return null;

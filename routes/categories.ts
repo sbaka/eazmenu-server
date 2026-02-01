@@ -21,7 +21,7 @@ router.post("/api/categories/:restaurantId", authenticate, rateLimits.api, check
     res.status(201).json(category);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: error.errors });
+      return res.status(400).json({ errors: (error as z.ZodError).issues });
     }
     logger.error(`Error creating category: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
@@ -31,7 +31,7 @@ router.post("/api/categories/:restaurantId", authenticate, rateLimits.api, check
 // Update category
 router.put("/api/categories/:categoryId", authenticate, async (req, res) => {
   try {
-    const categoryId = parseInt(req.params.categoryId);
+    const categoryId = parseInt(req.params.categoryId as string);
     if (isNaN(categoryId)) {
       return res.status(400).json({ message: "Invalid category ID" });
     }
@@ -53,7 +53,7 @@ router.put("/api/categories/:categoryId", authenticate, async (req, res) => {
 // Delete category
 router.delete("/api/categories/:categoryId", authenticate, async (req, res) => {
   try {
-    const categoryId = parseInt(req.params.categoryId);
+    const categoryId = parseInt(req.params.categoryId as string);
     if (isNaN(categoryId)) {
       return res.status(400).json({ message: "Invalid category ID" });
     }

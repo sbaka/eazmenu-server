@@ -18,7 +18,7 @@ const router = Router();
 // Middleware to check category ownership for translation writes
 async function checkCategoryOwnershipForTranslation(req: Request, res: Response, next: NextFunction) {
   try {
-    const categoryId = req.body.categoryId || parseInt(req.params.categoryId);
+    const categoryId = req.body.categoryId || parseInt(req.params.categoryId as string);
     if (!categoryId || isNaN(categoryId)) {
       return res.status(400).json({ message: "Valid categoryId is required" });
     }

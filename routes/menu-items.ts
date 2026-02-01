@@ -25,7 +25,7 @@ router.get("/api/menu-items/:restaurantId", authenticate, checkRestaurantOwnersh
 // Get menu items by category
 router.get("/api/menu-items/category/:categoryId", authenticate, async (req, res) => {
   try {
-    const categoryId = parseInt(req.params.categoryId);
+    const categoryId = parseInt(req.params.categoryId as string);
     if (isNaN(categoryId)) {
       return res.status(400).json({ message: "Invalid category ID" });
     }
@@ -47,7 +47,7 @@ router.get("/api/menu-items/category/:categoryId", authenticate, async (req, res
 // Get ingredients for a specific menu item
 router.get("/api/menu-items/:menuItemId/ingredients", authenticate, async (req, res) => {
   try {
-    const menuItemId = parseInt(req.params.menuItemId);
+    const menuItemId = parseInt(req.params.menuItemId as string);
     if (isNaN(menuItemId)) {
       return res.status(400).json({ message: "Invalid menu item ID" });
     }
@@ -146,7 +146,7 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
     }
     
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: error.errors });
+      return res.status(400).json({ errors: (error as z.ZodError).issues });
     }
     logger.error(`Error creating menu item: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
@@ -156,7 +156,7 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
 // Update menu item
 router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('image'), validateAndUploadToSupabase, async (req, res) => {
   try {
-    const menuItemId = parseInt(req.params.id);
+    const menuItemId = parseInt(req.params.id as string);
     if (isNaN(menuItemId)) {
       // Clean up uploaded file if validation fails
       if ((req as any).uploadedFileName) {
@@ -253,7 +253,7 @@ router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('imag
 // Delete menu item
 router.delete("/api/menu-items/:id", authenticate, async (req, res) => {
   try {
-    const menuItemId = parseInt(req.params.id);
+    const menuItemId = parseInt(req.params.id as string);
     if (isNaN(menuItemId)) {
       return res.status(400).json({ message: "Invalid menu item ID" });
     }

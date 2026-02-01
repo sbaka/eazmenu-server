@@ -1,5 +1,5 @@
-import { SingleTableWithQrCodeImage } from './../../../packages/shared/src/query-models/TableWithQrCodeImage';
 import { Router } from "express";
+import { SingleTableWithQrCodeImage } from "@sbaka/shared";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import QRCode from "qrcode";
@@ -69,7 +69,7 @@ router.post("/api/tables", authenticate, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ 
         message: "Validation error", 
-        errors: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+        errors: (error as z.ZodError).issues.map((e: z.ZodIssue) => `${e.path.join('.')}: ${e.message}`)
       });
     }
     logger.error(`Error creating table: ${sanitizeError(error)}`);
@@ -80,7 +80,7 @@ router.post("/api/tables", authenticate, async (req, res) => {
 // Update table
 router.put("/api/tables/:id", authenticate, async (req, res) => {
   try {
-    const tableId = parseInt(req.params.id);
+    const tableId = parseInt(req.params.id as string);
     if (isNaN(tableId)) {
       return res.status(400).json({ message: "Invalid table ID" });
     }
@@ -109,7 +109,7 @@ router.put("/api/tables/:id", authenticate, async (req, res) => {
 // Delete table
 router.delete("/api/tables/:id", authenticate, async (req, res) => {
   try {
-    const tableId = parseInt(req.params.id);
+    const tableId = parseInt(req.params.id as string);
     if (isNaN(tableId)) {
       return res.status(400).json({ message: "Invalid table ID" });
     }
@@ -194,7 +194,7 @@ router.get("/api/tables/qrcodes/all", authenticate, rateLimits.heavy, async (req
 
 router.get("/api/tables/:id/qrcode", authenticate, async (req, res) => {
   try {
-    const tableId = parseInt(req.params.id);
+    const tableId = parseInt(req.params.id as string);
     const merchantId = req.query.merchantId ? parseInt(req.query.merchantId as string) : req.user!.id;
     
     if (isNaN(tableId)) {

@@ -60,7 +60,7 @@ router.get("/api/restaurants", authenticate, rateLimits.api, async (req, res) =>
 // Get single restaurant by ID
 router.get("/api/restaurants/:id", authenticate, rateLimits.api, async (req, res) => {
   try {
-    const restaurantId = parseInt(req.params.id);
+    const restaurantId = parseInt(req.params.id as string);
     if (isNaN(restaurantId)) {
       return res.status(400).json({ message: "Invalid restaurant ID" });
     }
@@ -114,7 +114,7 @@ router.post("/api/restaurants", authenticate, rateLimits.api, async (req, res) =
 // Update a restaurant
 router.put("/api/restaurants/:id", authenticate, rateLimits.api, async (req, res) => {
   try {
-    const restaurantId = parseInt(req.params.id);
+    const restaurantId = parseInt(req.params.id as string);
     if (isNaN(restaurantId)) {
       return res.status(400).json({ message: "Invalid restaurant ID" });
     }
@@ -159,7 +159,7 @@ router.put("/api/restaurants/:id", authenticate, rateLimits.api, async (req, res
 // Delete a restaurant
 router.delete("/api/restaurants/:id", authenticate, rateLimits.api, async (req, res) => {
   try {
-    const restaurantId = parseInt(req.params.id);
+    const restaurantId = parseInt(req.params.id as string);
     if (isNaN(restaurantId)) {
       return res.status(400).json({ message: "Invalid restaurant ID" });
     }

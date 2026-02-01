@@ -10,8 +10,9 @@ import logger, { sanitizeError } from "./logger";
 import { config } from 'dotenv';
 import { tableSessionMiddleware } from "./middleware/session";
 
-// Load environment variables
-config();
+// Load environment variables: .env.local takes precedence over .env
+config({ path: '.env.local' });
+config({ path: '.env' });
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -159,8 +160,8 @@ app.use((req, res, next) => {
   server.listen(port, host, () => {
     logger.info(`Server running on port ${port}`);
     if (app.get("env") === "development") {
-      // In development we know we're on localhost, so this log line helps with testing
-      logger.info(`WebSocket server available at ws://localhost:${port}/ws`);
+      logger.info(`API available at http://localhost:${port}/api`);
+      logger.info(`Supabase Realtime enabled for order updates`);
     }
   });
 

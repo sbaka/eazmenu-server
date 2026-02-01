@@ -1,13 +1,14 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
-import { setupWebSocket } from "./websocket";
 import logger, { sanitizeError } from "./logger";
 import { 
   rateLimits, 
   suspiciousActivityDetector,
   createProgressiveIPRateLimit 
 } from "./security";
+import { startOrderCleanupWorker, stopOrderCleanupWorker } from "./workers/order-cleanup";
+import { supabaseBroadcaster } from "./services/order-lifecycle";
 
 // Import all route modules
 import {
@@ -50,12 +51,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
-  // Set up WebSocket server and get broadcasting functions
-  const { broadcastToRestaurant, broadcastToTable } = setupWebSocket(httpServer);
+  // Make Supabase broadcaster available globally for use in routes
+  // This replaces the old WebSocket broadcastToRestaurant/broadcastToTable functions
+  (global as any).supabaseBroadcaster = supabaseBroadcaster;
   
-  // Make broadcasting functions available globally for use in routes
-  (global as any).broadcastToRestaurant = broadcastToRestaurant;
-  (global as any).broadcastToTable = broadcastToTable;
+  // Start the order cleanup worker (uses protocol system for per-restaurant cleanup rules)
+  startOrderCleanupWorker();
 
 
   // Add error handling middleware
@@ -89,6 +90,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(oauthRoutes);
   app.use(analyticsRoutes);
   app.use(paymentsRoutes);
+  
+  // Graceful shutdown cleanup
+  const cleanup = async () => {
+    stopOrderCleanupWorker();
+    await supabaseBroadcaster.cleanup();
+  };
+  
+  process.on('SIGTERM', cleanup);
+  process.on('SIGINT', cleanup);
 
   return httpServer;
 }

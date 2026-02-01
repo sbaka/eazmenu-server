@@ -47,7 +47,7 @@ export async function checkRestaurantOwnership(req: Request, res: Response, next
     // restaurantId can come from params, body, or query
     let restaurantId: number | undefined;
     if (req.params.restaurantId) {
-      restaurantId = parseInt(req.params.restaurantId);
+      restaurantId = parseInt(req.params.restaurantId as string);
     } else if (req.body.restaurantId) {
       restaurantId = parseInt(req.body.restaurantId as string);
     } else if (typeof req.query.restaurantId === 'string') {

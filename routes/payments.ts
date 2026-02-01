@@ -12,7 +12,8 @@ const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 let stripe: any = null;
 if (stripeSecretKey) {
   // Dynamic import to avoid errors when Stripe is not configured
-  import('stripe').then((Stripe) => {
+  // @ts-ignore - stripe package may not be installed
+  import('stripe').then((Stripe: any) => {
     stripe = new Stripe.default(stripeSecretKey, {
       apiVersion: '2023-10-16',
     });

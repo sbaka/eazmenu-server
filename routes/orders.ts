@@ -7,6 +7,7 @@ import { rateLimits } from "../security";
 import { tables, orders, restaurants, menuItems } from "@sbaka/shared";
 import { db } from "@db";
 import logger, { sanitizeError } from "../logger";
+import { supabaseBroadcaster } from "../services/order-lifecycle";
 
 const router = Router();
 
@@ -14,7 +15,13 @@ const router = Router();
 // Returns active orders + same-session orders (including recently served)
 router.get("/api/tables/:tableId/orders", rateLimits.orders, async (req, res) => {
   try {
-    const tableId = parseInt(req.params.tableId);
+    
+    const tableIdParam = req.params.tableId as string;
+    if(Array.isArray(tableIdParam)) {
+      return res.status(400).json({message: "Invalid table ID parameter"});
+    }
+    const tableId = parseInt(tableIdParam);
+
     if (isNaN(tableId)) {
       return res.status(400).json({ message: "Invalid table ID" });
     }
@@ -204,31 +211,10 @@ router.post("/api/orders", rateLimits.orders, async (req, res) => {
     // Fetch the complete order with items
     const completeOrder = await storage.getOrderWithItems(order.id);
     
-    // Broadcast new order to restaurant staff via WebSocket
-    const { broadcastToRestaurant, broadcastToTable } = global as any;
-    if (broadcastToRestaurant) {
-      // Get restaurant merchant ID for broadcasting
-      const restaurant = await db.query.restaurants.findFirst({
-        where: eq(restaurants.id, restaurantId),
-        columns: { merchantId: true }
-      });
-      
-      if (restaurant) {
-        broadcastToRestaurant(restaurant.merchantId, {
-          type: 'new_order',
-          order: completeOrder,
-          tableId: tableId,
-        });
-      }
-    }
-    
-    // Also broadcast to table so other customers at the table see the new order
-    if (broadcastToTable) {
-      broadcastToTable(tableId, {
-        type: 'new_order',
-        order: completeOrder,
-      });
-    }
+    // Broadcast new order via Supabase Realtime
+    // Note: postgres_changes will auto-broadcast to subscribers, but we also
+    // send explicit broadcasts for additional context (table info, full order)
+    await supabaseBroadcaster.broadcastNewOrder(restaurantId, completeOrder);
     
     res.status(201).json(completeOrder);
   } catch (error) {
@@ -264,7 +250,7 @@ router.get("/api/orders", authenticate, async (req, res) => {
 // Update order status (staff only)
 router.put("/api/orders/:id/status", authenticate, async (req, res) => {
   try {
-    const orderId = parseInt(req.params.id);
+    const orderId = parseInt(req.params.id as string);
     if (isNaN(orderId)) {
       return res.status(400).json({ message: "Invalid order ID" });
     }
@@ -293,24 +279,15 @@ router.put("/api/orders/:id/status", authenticate, async (req, res) => {
     // Get complete order with items
     const completeOrder = await storage.getOrderWithItems(orderId, req.user!.id);
     
-    // Broadcast order status update to restaurant staff via WebSocket
-    const { broadcastToRestaurant, broadcastToTable } = global as any;
-    if (broadcastToRestaurant) {
-      broadcastToRestaurant(req.user!.id, {
-        type: 'order_status_updated',
-        order: completeOrder,
-      });
-    }
-    
-    // Also broadcast to the table so customers see the status change
-    if (broadcastToTable && order.tableId && completeOrder) {
-      broadcastToTable(order.tableId, {
-        type: 'order_status_updated',
-        orderId: completeOrder.id,
-        orderNumber: completeOrder.orderNumber,
-        status: completeOrder.status,
-        message: `Order ${completeOrder.orderNumber} is now ${completeOrder.status}`,
-      });
+    // Broadcast order status update via Supabase Realtime
+    // Note: postgres_changes will auto-broadcast the DB update, but we also
+    // send explicit broadcasts with full order context
+    if (completeOrder && order.tableId) {
+      await supabaseBroadcaster.broadcastOrderStatusUpdate(
+        order.tableId,
+        order.restaurantId,
+        completeOrder
+      );
     }
     
     res.json(completeOrder);

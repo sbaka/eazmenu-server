@@ -41,7 +41,7 @@ router.get("/api/translation/adapters", authenticate, async (_req: Request, res:
  */
 router.get("/api/translation/adapters/:adapterName/languages", authenticate, async (req: Request, res: Response) => {
   try {
-    const { adapterName } = req.params;
+    const adapterName = req.params.adapterName as string;
     
     const availableAdapters = translationService.getAvailableAdapters();
     if (!availableAdapters.includes(adapterName)) {
@@ -89,7 +89,7 @@ router.put("/api/translation/adapters/default", authenticate, async (req: Reques
  */
 router.post("/api/translation/adapters/:adapterName/test", authenticate, async (req: Request, res: Response) => {
   try {
-    const { adapterName } = req.params;
+    const adapterName = req.params.adapterName as string;
     const { text, sourceLanguage, targetLanguage } = req.body;
     
     if (!text || !targetLanguage) {

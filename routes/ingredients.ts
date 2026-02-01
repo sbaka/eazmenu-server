@@ -79,7 +79,7 @@ router.post("/api/ingredients", authenticate, async (req, res) => {
     res.status(201).json(ingredient);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: error.errors });
+      return res.status(400).json({ errors: (error as z.ZodError).issues });
     }
     logger.error(`Error creating ingredient: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
@@ -89,7 +89,7 @@ router.post("/api/ingredients", authenticate, async (req, res) => {
 // Get translations for an ingredient
 router.get("/api/ingredients/:ingredientId/translations", authenticate, async (req, res) => {
   try {
-    const ingredientId = parseInt(req.params.ingredientId);
+    const ingredientId = parseInt(req.params.ingredientId as string);
     if (isNaN(ingredientId)) {
       return res.status(400).json({ message: "Invalid ingredient ID" });
     }
@@ -108,7 +108,7 @@ router.get("/api/ingredients/:ingredientId/translations", authenticate, async (r
 // Create or update translation for an ingredient
 router.post("/api/ingredients/:ingredientId/translations", authenticate, async (req, res) => {
   try {
-    const ingredientId = parseInt(req.params.ingredientId);
+    const ingredientId = parseInt(req.params.ingredientId as string);
     if (isNaN(ingredientId)) {
       return res.status(400).json({ message: "Invalid ingredient ID" });
     }

@@ -5,7 +5,8 @@ import { config } from 'dotenv';
 
 // Load environment variables from .env file (for local development)
 // Railway and other cloud providers set environment variables directly
-config({ override: false });
+config({ path: '.env.local' });
+config({ path: '.env' });
 
 if (!process.env.DATABASE_URL) {
   console.error('Environment variables check:');
