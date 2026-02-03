@@ -13,7 +13,10 @@ router.post("/api/categories/:restaurantId", authenticate, rateLimits.api, check
   try {
     const restaurantId = (req as any).restaurant.id;
     const validatedData = insertCategorySchema.parse({
-      ...req.body,
+      ...{
+        name: req.body.name,
+        sortOrder: req.body.sortOrder,
+      },
       restaurantId,
     });
 

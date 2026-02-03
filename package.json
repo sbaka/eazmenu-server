@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@jridgewell/trace-mapping": "^0.3.25",
-    "@sbaka/shared": "1.1.1",
+    "@sbaka/shared": "1.1.4",
     "@supabase/realtime-js": "^2.93.3",
     "@supabase/supabase-js": "^2.93.3",
     "@types/compression": "^1.8.1",
