@@ -11,6 +11,8 @@ import {
   autoTranslate,
   getAllRestaurantTranslations,
   getLanguages,
+  translateEntireMenu,
+  getTranslationContentCounts,
 } from "../translation";
 
 const router = Router();
@@ -54,6 +56,12 @@ router.get("/api/translations/categories/:categoryId", getCategoryTranslations);
 
 // Auto translation route - requires ownership check
 router.post("/api/translations/auto", authenticate, autoTranslate);
+
+// Translate entire menu - one-click translation from primary to all secondary languages
+router.post("/api/restaurants/:restaurantId/translate-menu", authenticate, checkRestaurantOwnership, translateEntireMenu);
+
+// Get content counts for translation preview
+router.get("/api/restaurants/:restaurantId/translation-content-counts", authenticate, checkRestaurantOwnership, getTranslationContentCounts);
 
 // Get all translations for a restaurant (public read)
 router.get("/api/restaurants/:restaurantId/translations", getAllRestaurantTranslations);
