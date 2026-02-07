@@ -34,6 +34,36 @@ import {
   OrderWithItemsResponse,
 } from "@sbaka/shared";
 
+// Currency code to symbol mapping for customer display
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  CAD: 'C$',
+  AUD: 'A$',
+  JPY: '¥',
+  CHF: 'CHF',
+  CNY: '¥',
+  INR: '₹',
+  MXN: '$',
+  BRL: 'R$',
+  KRW: '₩',
+  SGD: 'S$',
+  HKD: 'HK$',
+  SEK: 'kr',
+  NOK: 'kr',
+  DKK: 'kr',
+  PLN: 'zł',
+  AED: 'د.إ',
+  SAR: '﷼',
+  TRY: '₺',
+  MAD: 'د.م.',
+};
+
+function getCurrencySymbol(currencyCode: string | null | undefined): string {
+  return CURRENCY_SYMBOLS[currencyCode ?? 'USD'] ?? '$';
+}
+
 interface CreateOrderWithItemsParams {
   orderData: Omit<InsertOrder, "id">;
   orderItems: Array<Omit<InsertOrderItem, "id" | "orderId">>;
@@ -1105,6 +1135,13 @@ class DatabaseStorage implements IStorage {
             email: restaurant.email ?? null,
             chefMessage: restaurant.chefMessage ?? null,
             themeConfig: restaurant.themeConfig ?? null,
+            currency: restaurant.currency ?? 'USD',
+            currencySymbol: getCurrencySymbol(restaurant.currency),
+            googleMapsUrl: restaurant.googleMapsUrl ?? null,
+            websiteUrl: restaurant.websiteUrl ?? null,
+            instagramUrl: restaurant.instagramUrl ?? null,
+            facebookUrl: restaurant.facebookUrl ?? null,
+            tiktokUrl: restaurant.tiktokUrl ?? null,
           },
           table: {
             id: finalTable.id,
@@ -1262,6 +1299,13 @@ class DatabaseStorage implements IStorage {
           email: restaurant.email ?? null,
           chefMessage: restaurant.chefMessage ?? null,
           themeConfig: restaurant.themeConfig ?? null,
+          currency: restaurant.currency ?? 'USD',
+          currencySymbol: getCurrencySymbol(restaurant.currency),
+          googleMapsUrl: restaurant.googleMapsUrl ?? null,
+          websiteUrl: restaurant.websiteUrl ?? null,
+          instagramUrl: restaurant.instagramUrl ?? null,
+          facebookUrl: restaurant.facebookUrl ?? null,
+          tiktokUrl: restaurant.tiktokUrl ?? null,
         },
         table: {
           id: finalTable.id,
