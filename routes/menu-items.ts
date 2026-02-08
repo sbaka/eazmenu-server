@@ -102,9 +102,10 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
       ...req.body,
       categoryId: parseInt(req.body.categoryId),
       price: parseInt(req.body.price),
-      active: req.body.active === 'true',
-      isBio: req.body.isBio === 'true',
-      isFeatured: req.body.isFeatured === 'true',
+      // Handle boolean fields for both JSON (boolean) and FormData (string) formats
+      active: req.body.active === true || req.body.active === 'true',
+      isBio: req.body.isBio === true || req.body.isBio === 'true',
+      isFeatured: req.body.isFeatured === true || req.body.isFeatured === 'true',
       // Parse allergens from form data (comma-separated or JSON array)
       allergens: req.body.allergens 
         ? (typeof req.body.allergens === 'string' 
@@ -194,9 +195,10 @@ router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('imag
       // Parse form data types when no file is uploaded
       updateData.categoryId = parseInt(req.body.categoryId);
       updateData.price = parseInt(req.body.price);
-      updateData.active = req.body.active === 'true';
-      updateData.isBio = req.body.isBio === 'true';
-      updateData.isFeatured = req.body.isFeatured === 'true';
+      // Handle boolean fields for both JSON (boolean) and FormData (string) formats
+      updateData.active = req.body.active === true || req.body.active === 'true';
+      updateData.isBio = req.body.isBio === true || req.body.isBio === 'true';
+      updateData.isFeatured = req.body.isFeatured === true || req.body.isFeatured === 'true';
       // Parse allergens from form data (comma-separated or JSON array)
       if (req.body.allergens !== undefined) {
         updateData.allergens = req.body.allergens 

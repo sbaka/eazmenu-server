@@ -1,37 +1,37 @@
-import { db } from "@db";
-import { eq, and, desc, sql, count, inArray, ne } from "drizzle-orm";
-import logger, { sanitizeError } from "./logger";
-import { findTableByQrCode, generateQrCodeForTable } from "./services/qr-code-service";
+import {db} from "@db";
+import {and, count, desc, eq, inArray, ne, sql} from "drizzle-orm";
+import logger, {sanitizeError} from "./logger";
+import {findTableByQrCode, generateQrCodeForTable} from "./services";
 import {
-  merchants,
   categories,
-  menuItems,
-  menuItemEvents,
-  languages,
-  menuItemTranslations,
   categoryTranslations,
   ingredients,
   ingredientTranslations,
-  menuItemIngredients,
-  tables,
-  orders,
-  orderItems,
-  InsertMerchant,
   InsertCategory,
-  InsertMenuItem,
-  InsertMenuItemEvent,
-  InsertLanguage,
-  InsertMenuItemTranslation,
   InsertCategoryTranslation,
   InsertIngredientTranslation,
-  InsertTable,
+  InsertLanguage,
+  InsertMenuItem,
+  InsertMenuItemEvent,
+  InsertMenuItemTranslation,
+  InsertMerchant,
   InsertOrder,
   InsertOrderItem,
-  Merchant,
-  Restaurant,
   InsertRestaurant,
-  restaurants,
+  InsertTable,
+  languages,
+  menuItemEvents,
+  menuItemIngredients,
+  menuItems,
+  menuItemTranslations,
+  Merchant,
+  merchants,
+  orderItems,
+  orders,
   OrderWithItemsResponse,
+  Restaurant,
+  restaurants,
+  tables,
 } from "@sbaka/shared";
 
 // Currency code to symbol mapping for customer display
@@ -242,17 +242,15 @@ class DatabaseStorage implements IStorage {
   }
   
   async getMerchantByUsername(username: string) {
-    const result = await db.query.merchants.findFirst({
+    return db.query.merchants.findFirst({
       where: eq(merchants.username, username),
     });
-    return result;
   }
 
   async getMerchantBySupabaseUserId(supabaseUserId: string) {
-    const result = await db.query.merchants.findFirst({
+    return db.query.merchants.findFirst({
       where: eq(merchants.supabaseUserId, supabaseUserId),
     });
-    return result;
   }
   
   async createMerchant(userData: Omit<InsertMerchant, "id">) {
@@ -349,13 +347,7 @@ class DatabaseStorage implements IStorage {
   
   // MenuItem methods
   async createMenuItem(menuItemData: Omit<InsertMenuItem, "id">) {
-    const [menuItem] = await db.insert(menuItems).values({
-      name: menuItemData.name,
-      description: menuItemData.description,
-      price: menuItemData.price,
-      categoryId: menuItemData.categoryId,
-      active: menuItemData.active
-    }).returning();
+    const [menuItem] = await db.insert(menuItems).values(menuItemData).returning();
     return menuItem;
   }
   
@@ -366,20 +358,20 @@ class DatabaseStorage implements IStorage {
       columns: { id: true },
     })).map((cat: any) => cat.id);
     if (categoryIds.length === 0) return [];
-    return await db.query.menuItems.findMany({
+    return db.query.menuItems.findMany({
       where: and(
-        inArray(menuItems.categoryId, categoryIds),
-        eq(menuItems.active, true)
+          inArray(menuItems.categoryId, categoryIds),
+          eq(menuItems.active, true)
       ),
       orderBy: menuItems.name,
     });
   }
 
   async getMenuItemsByCategory(categoryId: number) {
-    return await db.query.menuItems.findMany({
+    return db.query.menuItems.findMany({
       where: and(
-        eq(menuItems.categoryId, categoryId),
-        eq(menuItems.active, true)
+          eq(menuItems.categoryId, categoryId),
+          eq(menuItems.active, true)
       ),
       orderBy: menuItems.name,
     });
@@ -1137,6 +1129,8 @@ class DatabaseStorage implements IStorage {
             themeConfig: restaurant.themeConfig ?? null,
             currency: restaurant.currency ?? 'USD',
             currencySymbol: getCurrencySymbol(restaurant.currency),
+            bannerUrl: restaurant.bannerUrl ?? null,
+            logoUrl: restaurant.logoUrl ?? null,
             googleMapsUrl: restaurant.googleMapsUrl ?? null,
             websiteUrl: restaurant.websiteUrl ?? null,
             instagramUrl: restaurant.instagramUrl ?? null,
@@ -1301,6 +1295,8 @@ class DatabaseStorage implements IStorage {
           themeConfig: restaurant.themeConfig ?? null,
           currency: restaurant.currency ?? 'USD',
           currencySymbol: getCurrencySymbol(restaurant.currency),
+          bannerUrl: restaurant.bannerUrl ?? null,
+          logoUrl: restaurant.logoUrl ?? null,
           googleMapsUrl: restaurant.googleMapsUrl ?? null,
           websiteUrl: restaurant.websiteUrl ?? null,
           instagramUrl: restaurant.instagramUrl ?? null,

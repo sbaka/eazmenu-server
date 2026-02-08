@@ -8,6 +8,7 @@ import {
   createProgressiveIPRateLimit 
 } from "./security";
 import { startOrderCleanupWorker, stopOrderCleanupWorker } from "./workers/order-cleanup";
+import { startOrphanCleanupWorker, stopOrphanCleanupWorker } from "./workers/orphan-cleanup";
 import { supabaseBroadcaster } from "./services/order-lifecycle";
 
 // Import all route modules
@@ -26,7 +27,8 @@ import {
   oauthRoutes,
   customerOnlyRoutes,
   analyticsRoutes,
-  paymentsRoutes
+  paymentsRoutes,
+  uploadRoutes
 } from "./routes/index";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -57,6 +59,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start the order cleanup worker (uses protocol system for per-restaurant cleanup rules)
   startOrderCleanupWorker();
+
+  // Start the orphan cleanup worker (cleans up unconfirmed uploads)
+  startOrphanCleanupWorker();
 
 
   // Add error handling middleware
@@ -90,10 +95,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(oauthRoutes);
   app.use(analyticsRoutes);
   app.use(paymentsRoutes);
-  
+  app.use(uploadRoutes);
+
   // Graceful shutdown cleanup
   const cleanup = async () => {
     stopOrderCleanupWorker();
+    stopOrphanCleanupWorker();
     await supabaseBroadcaster.cleanup();
   };
   

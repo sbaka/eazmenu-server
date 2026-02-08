@@ -36,3 +36,18 @@ export {
 
 // QR Code Service (existing)
 export * from './qr-code-service';
+
+// Storage Service
+export {
+  StorageService,
+  uploadImage,
+  deleteImage,
+  getPublicUrl,
+  extractFilePathFromUrl,
+  validateImageType,
+  isStorageConfigured,
+  STORAGE_BUCKETS,
+  type StorageBucketType,
+  type UploadResult,
+  type DeleteResult,
+} from './storage.service';
