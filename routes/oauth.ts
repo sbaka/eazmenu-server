@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getSupabaseClient } from '../auth';
+import { getSupabaseClient, getSupabaseAdminClient } from '../auth';
 import logger from '../logger';
 import { optionalAuthenticateSupabase } from '../auth';
 
@@ -103,6 +103,77 @@ router.get('/api/auth/oauth/status', optionalAuthenticateSupabase, async (req: R
     hasPassword: false,
     providers: isConfigured ? ['google', 'azure'] : []
   });
+});
+
+/**
+ * POST /api/auth/password/recovery-link
+ * Development-only fallback when Supabase email sending fails.
+ * Generates a direct recovery link via Supabase Admin API (service role).
+ */
+router.post('/api/auth/password/recovery-link', async (req: Request, res: Response) => {
+  const host = (req.hostname || '').toLowerCase();
+  const ip = (req.ip || '').toLowerCase();
+  const isLocalRequest =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip.endsWith('127.0.0.1');
+
+  // Keep this endpoint disabled publicly in production, but still allow local diagnostics.
+  if (process.env.NODE_ENV === 'production' && !isLocalRequest) {
+    return res.status(404).json({ message: 'Not found' });
+  }
+
+  const supabaseAdmin = getSupabaseAdminClient();
+  if (!supabaseAdmin) {
+    return res.status(500).json({
+      message: 'Recovery fallback not configured: set SUPABASE_SERVICE_ROLE_KEY on server',
+    });
+  }
+
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const redirectTo = typeof req.body?.redirectTo === 'string' ? req.body.redirectTo.trim() : '';
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' });
+  }
+
+  try {
+    const { data, error } = await (supabaseAdmin.auth as any).admin.generateLink({
+      type: 'recovery',
+      email,
+      options: redirectTo ? { redirectTo } : undefined,
+    });
+
+    if (error) {
+      logger.error('Failed to generate recovery link', {
+        email,
+        error: error.message,
+      });
+      return res.status(500).json({ message: 'Failed to generate recovery link' });
+    }
+
+    const recoveryLink =
+      data?.properties?.action_link ??
+      data?.action_link ??
+      null;
+
+    if (!recoveryLink) {
+      logger.error('Supabase generateLink returned no action_link', { email });
+      return res.status(500).json({ message: 'Recovery link unavailable' });
+    }
+
+    logger.warn('Generated development recovery link fallback', { email });
+    return res.json({ recoveryLink });
+  } catch (error) {
+    logger.error('Recovery link fallback failed', {
+      email,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({ message: 'Recovery link fallback failed' });
+  }
 });
 
 export default router;

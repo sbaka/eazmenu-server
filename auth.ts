@@ -40,19 +40,42 @@ declare global {
 
 // Initialize Supabase admin client for server-side token verification
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 let supabase: SupabaseClient | null = null;
+let supabaseAdmin: SupabaseClient | null = null;
 
-if (supabaseUrl && supabaseServiceKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceKey);
-  logger.info("Supabase client initialized for authentication");
+function isPublishableKey(key: string): boolean {
+  return key.startsWith("sb_publishable_");
+}
+
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
+  logger.info("Supabase client initialized for authentication", {
+    keyType: isPublishableKey(supabaseKey) ? "publishable" : "service_or_secret",
+  });
 } else {
   logger.warn("Supabase environment variables not configured. Authentication will be disabled.");
 }
 
+if (supabaseUrl && supabaseServiceRoleKey) {
+  if (isPublishableKey(supabaseServiceRoleKey)) {
+    logger.error("SUPABASE_SERVICE_ROLE_KEY is misconfigured (publishable key). Admin auth operations are disabled.");
+  } else {
+    supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
+    logger.info("Supabase admin client initialized");
+  }
+} else {
+  logger.warn("SUPABASE_SERVICE_ROLE_KEY not configured. Admin auth operations are disabled.");
+}
+
 export function getSupabaseClient(): SupabaseClient | null {
   return supabase;
+}
+
+export function getSupabaseAdminClient(): SupabaseClient | null {
+  return supabaseAdmin;
 }
 
 /**
