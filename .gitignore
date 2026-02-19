@@ -5,3 +5,4 @@
 dist/index.js
 .DS_Store
 logs/
+.idea/
