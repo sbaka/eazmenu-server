@@ -5,6 +5,14 @@ import { rateLimits } from "../security";
 import logger, { sanitizeError } from "../logger";
 import { insertRestaurantSchema, themeConfigSchema } from "@sbaka/shared";
 import { z } from "zod";
+import {
+  uploadRestaurantBanner,
+  uploadRestaurantLogo,
+  validateAndUploadBanner,
+  validateAndUploadLogo,
+  deleteUploadedFile,
+  STORAGE_BUCKETS,
+} from "../middleware/upload";
 
 const router = Router();
 
@@ -182,6 +190,182 @@ router.delete("/api/restaurants/:id", authenticate, rateLimits.api, async (req, 
     res.json({ message: "Restaurant deleted successfully" });
   } catch (error) {
     logger.error(`Error deleting restaurant: ${sanitizeError(error)}`);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// =============================================================================
+// RESTAURANT BRANDING ENDPOINTS
+// =============================================================================
+
+// Upload restaurant banner
+router.post(
+  "/api/restaurants/:id/banner",
+  authenticate,
+  rateLimits.api,
+  uploadRestaurantBanner.single('image'),
+  validateAndUploadBanner,
+  async (req, res) => {
+    try {
+      const restaurantId = parseInt(req.params.id as string);
+      if (isNaN(restaurantId)) {
+        return res.status(400).json({ message: "Invalid restaurant ID" });
+      }
+
+      // Verify ownership
+      const existing = await storage.getRestaurantById(restaurantId);
+      if (!existing) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      if (existing.merchantId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const uploadedUrl = (req as any).uploadedImageUrl;
+      if (!uploadedUrl) {
+        return res.status(400).json({ message: "No image file provided" });
+      }
+
+      // Delete old banner if exists
+      if (existing.bannerUrl) {
+        await deleteUploadedFile(existing.bannerUrl, STORAGE_BUCKETS.RESTAURANT_BANNERS);
+      }
+
+      // Update restaurant with new banner URL
+      const restaurant = await storage.updateRestaurant(
+        restaurantId,
+        { bannerUrl: uploadedUrl },
+        req.user!.id
+      );
+
+      logger.info(`Restaurant banner updated: ${restaurantId} by merchant ${req.user!.id}`);
+      res.json({ bannerUrl: uploadedUrl, restaurant });
+    } catch (error) {
+      logger.error(`Error uploading restaurant banner: ${sanitizeError(error)}`);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// Delete restaurant banner
+router.delete("/api/restaurants/:id/banner", authenticate, rateLimits.api, async (req, res) => {
+  try {
+    const restaurantId = parseInt(req.params.id as string);
+    if (isNaN(restaurantId)) {
+      return res.status(400).json({ message: "Invalid restaurant ID" });
+    }
+
+    // Verify ownership
+    const existing = await storage.getRestaurantById(restaurantId);
+    if (!existing) {
+      return res.status(404).json({ message: "Restaurant not found" });
+    }
+    if (existing.merchantId !== req.user!.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Delete banner from storage if exists
+    if (existing.bannerUrl) {
+      await deleteUploadedFile(existing.bannerUrl, STORAGE_BUCKETS.RESTAURANT_BANNERS);
+    }
+
+    // Update restaurant to remove banner URL
+    const restaurant = await storage.updateRestaurant(
+      restaurantId,
+      { bannerUrl: null },
+      req.user!.id
+    );
+
+    logger.info(`Restaurant banner deleted: ${restaurantId} by merchant ${req.user!.id}`);
+    res.json({ message: "Banner deleted successfully", restaurant });
+  } catch (error) {
+    logger.error(`Error deleting restaurant banner: ${sanitizeError(error)}`);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Upload restaurant logo
+router.post(
+  "/api/restaurants/:id/logo",
+  authenticate,
+  rateLimits.api,
+  uploadRestaurantLogo.single('image'),
+  validateAndUploadLogo,
+  async (req, res) => {
+    try {
+      const restaurantId = parseInt(req.params.id as string);
+      if (isNaN(restaurantId)) {
+        return res.status(400).json({ message: "Invalid restaurant ID" });
+      }
+
+      // Verify ownership
+      const existing = await storage.getRestaurantById(restaurantId);
+      if (!existing) {
+        return res.status(404).json({ message: "Restaurant not found" });
+      }
+      if (existing.merchantId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const uploadedUrl = (req as any).uploadedImageUrl;
+      if (!uploadedUrl) {
+        return res.status(400).json({ message: "No image file provided" });
+      }
+
+      // Delete old logo if exists
+      if (existing.logoUrl) {
+        await deleteUploadedFile(existing.logoUrl, STORAGE_BUCKETS.RESTAURANT_LOGOS);
+      }
+
+      // Update restaurant with new logo URL
+      const restaurant = await storage.updateRestaurant(
+        restaurantId,
+        { logoUrl: uploadedUrl },
+        req.user!.id
+      );
+
+      logger.info(`Restaurant logo updated: ${restaurantId} by merchant ${req.user!.id}`);
+      res.json({ logoUrl: uploadedUrl, restaurant });
+    } catch (error) {
+      logger.error(`Error uploading restaurant logo: ${sanitizeError(error)}`);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// Delete restaurant logo
+router.delete("/api/restaurants/:id/logo", authenticate, rateLimits.api, async (req, res) => {
+  try {
+    const restaurantId = parseInt(req.params.id as string);
+    if (isNaN(restaurantId)) {
+      return res.status(400).json({ message: "Invalid restaurant ID" });
+    }
+
+    // Verify ownership
+    const existing = await storage.getRestaurantById(restaurantId);
+    if (!existing) {
+      return res.status(404).json({ message: "Restaurant not found" });
+    }
+    if (existing.merchantId !== req.user!.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Delete logo from storage if exists
+    if (existing.logoUrl) {
+      await deleteUploadedFile(existing.logoUrl, STORAGE_BUCKETS.RESTAURANT_LOGOS);
+    }
+
+    // Update restaurant to remove logo URL
+    const restaurant = await storage.updateRestaurant(
+      restaurantId,
+      { logoUrl: null },
+      req.user!.id
+    );
+
+    logger.info(`Restaurant logo deleted: ${restaurantId} by merchant ${req.user!.id}`);
+    res.json({ message: "Logo deleted successfully", restaurant });
+  } catch (error) {
+    logger.error(`Error deleting restaurant logo: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
   }
 });

@@ -9,6 +9,7 @@ import { registerRoutes } from "./routes";
 import logger, { sanitizeError } from "./logger";
 import { config } from 'dotenv';
 import { tableSessionMiddleware } from "./middleware/session";
+import { startOrphanCleanupWorker, stopOrphanCleanupWorker } from "./workers/orphan-cleanup";
 
 // Load environment variables: .env.local takes precedence over .env
 config({ path: '.env.local' });
@@ -163,12 +164,18 @@ app.use((req, res, next) => {
       logger.info(`API available at http://localhost:${port}/api`);
       logger.info(`Supabase Realtime enabled for order updates`);
     }
+
+    // Start orphan cleanup worker for cleaning up unused uploads
+    startOrphanCleanupWorker();
   });
 
   // Graceful shutdown handling
   const shutdown = (signal: string) => {
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
     
+    // Stop background workers
+    stopOrphanCleanupWorker();
+
     server.close((err) => {
       if (err) {
         logger.error(`Error during server shutdown: ${sanitizeError(err)}`);

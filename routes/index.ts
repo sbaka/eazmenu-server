@@ -12,6 +12,7 @@ export { default as translationAdapterRoutes } from './translation-adapters';
 export { default as oauthRoutes } from './oauth';
 export { default as analyticsRoutes } from './analytics';
 export { default as paymentsRoutes } from './payments';
+export { default as uploadRoutes } from './uploads';
 
 // Export middleware for use in main routes file
 export * from '../middleware'; 

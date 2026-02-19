@@ -13,6 +13,7 @@ import {
   categoryTranslations,
   ingredients,
   restaurants,
+  menuItemIngredients,
 } from "@sbaka/shared";
 import { db } from "@db";
 import { eq, and, inArray } from "drizzle-orm";
@@ -532,3 +533,201 @@ export async function getAllRestaurantTranslations(req: Request, res: Response) 
     res.status(500).json({ message: "Server error" });
   }
 }
+
+// Response types for menu translation
+interface TranslationResult {
+  menuItems: number;
+  categories: number;
+  ingredients: number;
+}
+
+interface TranslationUsage {
+  itemCount: number;
+  languageCount: number;
+  characterCount: number;
+}
+
+interface TranslateMenuResponse {
+  results: TranslationResult;
+  failures: TranslationResult;
+  usage: TranslationUsage;
+}
+
+// Route handler to get content counts for translation preview
+export async function getTranslationContentCounts(req: Request, res: Response) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const restaurantId = parseInt(req.params.restaurantId as string);
+    if (isNaN(restaurantId)) {
+      return res.status(400).json({ message: "Invalid restaurant ID" });
+    }
+
+    // Fetch menu items and categories for this restaurant
+    const restaurantMenuItems = await storage.getMenuItemsByRestaurantId(restaurantId);
+    const restaurantCategories = await storage.getCategoriesByRestaurantId(restaurantId);
+
+    // Get unique ingredient IDs used by menu items
+    const menuItemIds = restaurantMenuItems.map((item: any) => item.id);
+    const usedIngredientIds = await getIngredientIdsByMenuItemsHelper(menuItemIds);
+
+    res.json({
+      menuItems: restaurantMenuItems.length,
+      categories: restaurantCategories.length,
+      ingredients: usedIngredientIds.length,
+    });
+  } catch (error) {
+    logger.error(`Error fetching translation content counts: ${sanitizeError(error)}`);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+// Helper to get ingredient IDs used by menu items (extracted for reuse)
+async function getIngredientIdsByMenuItemsHelper(menuItemIds: number[]): Promise<number[]> {
+  if (menuItemIds.length === 0) return [];
+
+  try {
+    const menuItemIngredientsData = await db.query.menuItemIngredients.findMany({
+      where: inArray(menuItemIngredients.menuItemId, menuItemIds),
+    });
+
+    const uniqueIngredientIds = [...new Set(menuItemIngredientsData.map((mi: any) => mi.ingredientId))];
+    return uniqueIngredientIds;
+  } catch (error) {
+    logger.error(`Error fetching menu item ingredients: ${sanitizeError(error)}`);
+    return [];
+  }
+}
+
+// Route handler for translating entire menu from primary to all secondary languages
+export async function translateEntireMenu(req: Request, res: Response) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const restaurantId = parseInt(req.params.restaurantId as string);
+    if (isNaN(restaurantId)) {
+      return res.status(400).json({ message: "Invalid restaurant ID" });
+    }
+
+    // Verify user owns the restaurant
+    const restaurant = await db.query.restaurants.findFirst({
+      where: and(eq(restaurants.id, restaurantId), eq(restaurants.merchantId, userId)),
+    });
+
+    if (!restaurant) {
+      return res.status(403).json({ message: "Restaurant not found or access denied" });
+    }
+
+    // Get all languages for this restaurant
+    const restaurantLanguages = await storage.getLanguagesByRestaurantId(restaurantId);
+
+    // Find primary language (source)
+    const primaryLanguage = restaurantLanguages.find((lang: any) => lang.isPrimary);
+    if (!primaryLanguage) {
+      return res.status(400).json({ message: "No primary language configured. Please set a primary language first." });
+    }
+
+    // Get secondary languages (targets) - active non-primary languages
+    const secondaryLanguages = restaurantLanguages.filter((lang: any) => !lang.isPrimary && lang.active);
+    if (secondaryLanguages.length === 0) {
+      return res.status(400).json({ message: "No secondary languages configured. Add at least one secondary language to translate." });
+    }
+
+    // Fetch all menu content for this restaurant
+    const restaurantMenuItems = await storage.getMenuItemsByRestaurantId(restaurantId);
+    const restaurantCategories = await storage.getCategoriesByRestaurantId(restaurantId);
+
+    // Get ingredient IDs used by menu items in this restaurant
+    const menuItemIds = restaurantMenuItems.map((item: any) => item.id);
+    const usedIngredientIds = await getIngredientIdsByMenuItemsHelper(menuItemIds);
+
+    // Initialize counters
+    const results: TranslationResult = { menuItems: 0, categories: 0, ingredients: 0 };
+    const failures: TranslationResult = { menuItems: 0, categories: 0, ingredients: 0 };
+    let characterCount = 0;
+
+    // Translate to each secondary language
+    for (const targetLanguage of secondaryLanguages) {
+      // Translate menu items
+      for (const menuItem of restaurantMenuItems) {
+        try {
+          const translated = await translateMenuItems(
+            [menuItem.id],
+            primaryLanguage.id,
+            targetLanguage.id,
+            primaryLanguage,
+            targetLanguage
+          );
+          if (translated.length > 0) {
+            results.menuItems++;
+            characterCount += (menuItem.name?.length || 0) + (menuItem.description?.length || 0);
+          }
+        } catch (error) {
+          logger.error(`Failed to translate menu item ${menuItem.id}: ${sanitizeError(error)}`);
+          failures.menuItems++;
+        }
+      }
+
+      // Translate categories
+      for (const category of restaurantCategories) {
+        try {
+          const translated = await translateCategories(
+            [category.id],
+            primaryLanguage.id,
+            targetLanguage.id,
+            primaryLanguage,
+            targetLanguage
+          );
+          if (translated.length > 0) {
+            results.categories++;
+            characterCount += category.name?.length || 0;
+          }
+        } catch (error) {
+          logger.error(`Failed to translate category ${category.id}: ${sanitizeError(error)}`);
+          failures.categories++;
+        }
+      }
+
+      // Translate ingredients used in this restaurant's menu
+      for (const ingredientId of usedIngredientIds) {
+        try {
+          const translated = await translateIngredients(
+            [ingredientId],
+            primaryLanguage.id,
+            targetLanguage.id,
+            primaryLanguage,
+            targetLanguage
+          );
+          if (translated.length > 0) {
+            results.ingredients++;
+          }
+        } catch (error) {
+          logger.error(`Failed to translate ingredient ${ingredientId}: ${sanitizeError(error)}`);
+          failures.ingredients++;
+        }
+      }
+    }
+
+    const response: TranslateMenuResponse = {
+      results,
+      failures,
+      usage: {
+        itemCount: results.menuItems + results.categories + results.ingredients,
+        languageCount: secondaryLanguages.length,
+        characterCount,
+      },
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    logger.error(`Error translating entire menu: ${sanitizeError(error)}`);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+

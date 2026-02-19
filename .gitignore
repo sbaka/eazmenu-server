@@ -6,3 +6,5 @@ dist/index.js
 .DS_Store
 logs/
 .idea/
+*.tsbuildinfo
+tsconfig.tsbuildinfo

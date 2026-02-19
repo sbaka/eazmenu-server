@@ -1,21 +1,24 @@
 import multer from 'multer';
-import { nanoid } from 'nanoid';
-import { createClient } from '@supabase/supabase-js';
 import { Request, Response, NextFunction } from 'express';
+import {
+  StorageService,
+  STORAGE_BUCKETS,
+  StorageBucketType,
+  validateImageType,
+  extractFilePathFromUrl,
+} from '../services/storage.service';
 import logger, { sanitizeError } from '../logger';
 
-// Dynamic import for file-type (ESM module)
-async function getFileType(buffer: Buffer) {
-  const fileType = await import('file-type') as any;
-  return fileType.fileTypeFromBuffer(buffer);
-}
+// =============================================================================
+// IMAGE UPLOAD MIDDLEWARE
+// =============================================================================
 
-// Supabase client configuration
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const BUCKET_NAME = 'menu-items';
+/**
+ * Multer configuration and middleware for handling image uploads to Supabase Storage.
+ * Provides reusable upload handlers for different image types with size limits.
+ */
 
-// Allowed image MIME types and their magic bytes
+// Allowed image MIME types
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
@@ -23,24 +26,15 @@ const ALLOWED_MIME_TYPES = [
   'image/webp',
 ];
 
-// Initialize Supabase client (lazy initialization)
-let supabase: ReturnType<typeof createClient> | null = null;
-
-function getSupabaseClient() {
-  if (!supabase) {
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set for file uploads');
-    }
-    supabase = createClient(supabaseUrl, supabaseServiceKey);
-  }
-  return supabase;
-}
-
 // Use memory storage for Supabase upload
 const memoryStorage = multer.memoryStorage();
 
 // Basic MIME type filter (additional magic byte validation happens after)
-const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const imageFileFilter = (
+  _req: Express.Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+) => {
   if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -48,124 +42,131 @@ const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterC
   }
 };
 
-// Create multer instance with memory storage
-export const uploadMenuItemImage = multer({
-  storage: memoryStorage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 1 // Only allow 1 file
-  }
-});
+/**
+ * Create a multer upload instance with specified size limit
+ */
+function createMulterUpload(maxSizeMB: number) {
+  return multer({
+    storage: memoryStorage,
+    fileFilter: imageFileFilter,
+    limits: {
+      fileSize: maxSizeMB * 1024 * 1024,
+      files: 1,
+    },
+  });
+}
 
-// Middleware to validate magic bytes and upload to Supabase
-export async function validateAndUploadToSupabase(
-  req: Request,
-  res: Response,
-  next: NextFunction
+// Pre-configured multer instances for different upload types
+export const uploadMenuItemImage = createMulterUpload(5);      // 5MB for menu items
+export const uploadRestaurantBanner = createMulterUpload(5);   // 5MB for banners
+export const uploadRestaurantLogo = createMulterUpload(5);     // 5MB for logos
+
+/**
+ * Factory to create upload-to-Supabase middleware for a specific bucket type
+ */
+export function createUploadMiddleware(bucketType: StorageBucketType) {
+  return async function uploadToSupabase(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const file = req.file;
+
+      if (!file) {
+        return next();
+      }
+
+      // Validate magic bytes
+      const fileType = await validateImageType(file.buffer);
+      if (!fileType) {
+        res.status(400).json({
+          message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.',
+        });
+        return;
+      }
+
+      // Get restaurantId from params or body for restaurant assets
+      let restaurantId: number | undefined;
+      if (bucketType !== STORAGE_BUCKETS.MENU_ITEMS) {
+        restaurantId = parseInt(req.params.id as string) || parseInt(req.body.restaurantId as string);
+        if (!restaurantId) {
+          res.status(400).json({ message: 'Restaurant ID is required for this upload' });
+          return;
+        }
+      }
+
+      // Upload to Supabase
+      const result = await StorageService.uploadImage(file.buffer, bucketType, restaurantId);
+
+      if (!result.success) {
+        res.status(500).json({ message: result.error || 'Failed to upload image' });
+        return;
+      }
+
+      // Attach results to request for use in route handlers
+      (req as any).uploadedImageUrl = result.publicUrl;
+      (req as any).uploadedFilePath = result.filePath;
+      (req as any).uploadedBucketType = bucketType;
+      // Keep uploadedFileName for backward compatibility
+      (req as any).uploadedFileName = result.filePath;
+
+      next();
+    } catch (error) {
+      logger.error(`Upload middleware error: ${sanitizeError(error)}`);
+      res.status(500).json({ message: 'Failed to process upload' });
+    }
+  };
+}
+
+// Pre-configured upload middlewares for different bucket types
+export const validateAndUploadToSupabase = createUploadMiddleware(STORAGE_BUCKETS.MENU_ITEMS);
+export const validateAndUploadBanner = createUploadMiddleware(STORAGE_BUCKETS.RESTAURANT_BANNERS);
+export const validateAndUploadLogo = createUploadMiddleware(STORAGE_BUCKETS.RESTAURANT_LOGOS);
+
+/**
+ * Delete an uploaded file from Supabase Storage
+ * @param filename - The file path or full URL
+ * @param bucketType - The bucket to delete from (defaults to menu-items for backward compatibility)
+ */
+export async function deleteUploadedFile(
+  filename: string,
+  bucketType: StorageBucketType = STORAGE_BUCKETS.MENU_ITEMS
 ): Promise<void> {
-  try {
-    const file = req.file;
-    
-    if (!file) {
-      return next();
-    }
-    
-    // Validate magic bytes - this prevents MIME type spoofing
-    const fileType = await getFileType(file.buffer);
-    
-    if (!fileType || !ALLOWED_MIME_TYPES.includes(fileType.mime)) {
-      res.status(400).json({ 
-        message: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.' 
-      });
+  // If it's a URL, extract the file path
+  let filePath = filename;
+  if (filename.startsWith('http')) {
+    const extracted = extractFilePathFromUrl(filename, bucketType);
+    if (!extracted) {
+      logger.warn(`Could not extract file path from URL: ${filename}`);
       return;
     }
-    
-    // Generate unique filename
-    const uniqueSuffix = nanoid(10);
-    const ext = fileType.ext;
-    const filename = `menu-item-${uniqueSuffix}.${ext}`;
-    
-    // Upload to Supabase Storage
-    const supabaseClient = getSupabaseClient();
-    const { error } = await supabaseClient.storage
-      .from(BUCKET_NAME)
-      .upload(filename, file.buffer, {
-        contentType: fileType.mime,
-        cacheControl: '3600',
-        upsert: false,
-      });
-    
-    if (error) {
-      logger.error(`Supabase upload error: ${sanitizeError(error)}`);
-      res.status(500).json({ message: 'Failed to upload image' });
-      return;
-    }
-    
-    // Get public URL
-    const { data: urlData } = supabaseClient.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(filename);
-    
-    // Attach the URL to the request for use in route handlers
-    (req as any).uploadedImageUrl = urlData.publicUrl;
-    (req as any).uploadedFileName = filename;
-    
-    next();
-  } catch (error) {
-    logger.error(`Upload validation error: ${sanitizeError(error)}`);
-    res.status(500).json({ message: 'Failed to process upload' });
+    filePath = extracted;
+  }
+
+  const result = await StorageService.deleteImage(filePath, bucketType);
+  if (!result.success) {
+    logger.error(`Failed to delete file: ${result.error}`);
   }
 }
 
-// Helper function to get image URL from uploaded file (for compatibility)
-export const getImageUrl = (filename: string): string => {
-  if (!supabaseUrl) {
-    // Fallback for local development without Supabase
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3002}`;
-    return `${baseUrl}/uploads/menu-items/${filename}`;
-  }
-  
-  const supabaseClient = getSupabaseClient();
-  const { data } = supabaseClient.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(filename);
-  
-  return data.publicUrl;
-};
+/**
+ * Get public URL for a file (backward compatibility)
+ */
+export function getImageUrl(
+  filename: string,
+  bucketType: StorageBucketType = STORAGE_BUCKETS.MENU_ITEMS
+): string {
+  return StorageService.getPublicUrl(filename, bucketType);
+}
 
-// Helper function to delete uploaded file from Supabase
-export const deleteUploadedFile = async (filename: string): Promise<void> => {
-  try {
-    if (!supabaseUrl || !supabaseServiceKey) {
-      // Supabase not configured, skip deletion
-      if (process.env.NODE_ENV === 'development') {
-        logger.warn('Supabase not configured, skipping file deletion');
-      }
-      return;
-    }
-    
-    const supabaseClient = getSupabaseClient();
-    const { error } = await supabaseClient.storage
-      .from(BUCKET_NAME)
-      .remove([filename]);
-    
-    if (error) {
-      logger.error(`Error deleting file from Supabase: ${sanitizeError(error)}`);
-    }
-  } catch (error) {
-    logger.error(`Error deleting uploaded file: ${sanitizeError(error)}`);
-  }
-};
+/**
+ * Extract filename from URL (backward compatibility)
+ */
+export function getFilenameFromUrl(imageUrl: string): string | null {
+  return extractFilePathFromUrl(imageUrl, STORAGE_BUCKETS.MENU_ITEMS);
+}
 
-// Helper function to extract filename from imageUrl
-export const getFilenameFromUrl = (imageUrl: string): string | null => {
-  try {
-    const url = new URL(imageUrl);
-    const pathname = url.pathname;
-    const filename = pathname.substring(pathname.lastIndexOf('/') + 1);
-    return filename.startsWith('menu-item-') ? filename : null;
-  } catch (error) {
-    return null;
-  }
-};
+// Re-export bucket types for convenience
+export { STORAGE_BUCKETS };
+export type { StorageBucketType };
