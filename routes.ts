@@ -2,10 +2,10 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import logger, { sanitizeError } from "./logger";
-import { 
-  rateLimits, 
+import {
+  rateLimits,
   suspiciousActivityDetector,
-  createProgressiveIPRateLimit 
+  createProgressiveIPRateLimit
 } from "./security";
 import { startOrderCleanupWorker, stopOrderCleanupWorker } from "./workers/order-cleanup";
 import { startOrphanCleanupWorker, stopOrphanCleanupWorker } from "./workers/orphan-cleanup";
@@ -34,20 +34,21 @@ import {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Apply progressive IP-based rate limiting globally
   app.use(createProgressiveIPRateLimit());
-  
+
   // Apply security middleware globally
   app.use(suspiciousActivityDetector);
-  
+
   // Note: CSRF protection removed - using JWT Bearer tokens which are not vulnerable to CSRF
-  
+
   // Apply specific rate limits to different endpoint types
   app.use('/api/orders', rateLimits.orders);
   app.use('/api/tables/qrcodes/all', rateLimits.heavy);
+  app.use('/api/tables/qrcodes/export', rateLimits.heavy);
   app.use('/api/menu', rateLimits.customer);
   app.use('/api/customer/menu', rateLimits.customer);
   app.use('/api/customer/menu-data', rateLimits.customer);
   app.use('/api/restaurants/:restaurantId/translations', rateLimits.customer);
-  
+
   // Set up authentication routes
   setupAuth(app);
 
@@ -56,7 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Make Supabase broadcaster available globally for use in routes
   // This replaces the old WebSocket broadcastToRestaurant/broadcastToTable functions
   (global as any).supabaseBroadcaster = supabaseBroadcaster;
-  
+
   // Start the order cleanup worker (uses protocol system for per-restaurant cleanup rules)
   startOrderCleanupWorker();
 
@@ -70,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (err.stack) {
       logger.debug(err.stack);
     }
-    
+
     const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
     res.status(statusCode).json({
       message: sanitizeError(err)
@@ -103,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     stopOrphanCleanupWorker();
     await supabaseBroadcaster.cleanup();
   };
-  
+
   process.on('SIGTERM', cleanup);
   process.on('SIGINT', cleanup);
 

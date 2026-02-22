@@ -31,8 +31,9 @@ type UserIdentity = NonNullable<SupabaseUser['identities']>[number];
 // Extend Express types for user
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User extends SelectUser { }
     interface Request {
+      user?: User;
       supabaseUser?: SupabaseUser;
     }
   }
@@ -158,9 +159,9 @@ function normalizeSupabaseProfile(supabaseUser: SupabaseUser): NormalizedProfile
     ?? (metadata.user_name as string | undefined)
     ?? (identityData.username as string | undefined)
     ?? (identityData.user_name as string | undefined);
-  
-  const username = explicitUsername 
-    ?? email?.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '') 
+
+  const username = explicitUsername
+    ?? email?.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
     ?? 'user';
 
   return {
@@ -237,11 +238,11 @@ export const authenticateSupabase: RequestHandler = async (req: Request, res: Re
       merchant = await createMerchantFromSupabaseUser(supabaseUser, profile);
     } else if (hasProfileChanged(merchant, profile)) {
       // Sync profile data if it has changed
-      logger.info(`Syncing profile for merchant ${merchant.id}`, { 
-        oldEmail: merchant.email, 
+      logger.info(`Syncing profile for merchant ${merchant.id}`, {
+        oldEmail: merchant.email,
         newEmail: profile.email,
         oldDisplayName: merchant.displayName,
-        newDisplayName: profile.displayName 
+        newDisplayName: profile.displayName
       });
       merchant = await storage.updateMerchantProfile(merchant.id, {
         email: profile.email,
@@ -280,9 +281,9 @@ export const optionalAuthenticateSupabase: RequestHandler = async (req: Request,
 
     if (!error && supabaseUser) {
       req.supabaseUser = supabaseUser;
-      
+
       let merchant = await storage.getMerchantBySupabaseUserId(supabaseUser.id);
-      
+
       if (merchant) {
         // Sync profile if changed
         const profile = normalizeSupabaseProfile(supabaseUser);
@@ -297,7 +298,7 @@ export const optionalAuthenticateSupabase: RequestHandler = async (req: Request,
         req.user = merchant ?? undefined;
       }
     }
-    
+
     next();
   } catch (error) {
     // Silent fail for optional auth
@@ -309,7 +310,7 @@ export const optionalAuthenticateSupabase: RequestHandler = async (req: Request,
  * Create a new merchant from Supabase user data with normalized profile
  */
 async function createMerchantFromSupabaseUser(
-  supabaseUser: SupabaseUser, 
+  supabaseUser: SupabaseUser,
   profile: NormalizedProfile
 ): Promise<SelectUser | undefined> {
   const email = supabaseUser.email;
@@ -401,6 +402,41 @@ export function setupAuth(app: Express) {
       return res.status(401).json({ message: "Not authenticated" });
     }
     res.json(req.user);
+  });
+
+  // PATCH /api/user/preferences - Update user preferences (e.g. language)
+  const SUPPORTED_LANGUAGES = ["en", "fr", "ar", "es", "de"];
+
+  app.patch("/api/user/preferences", authenticateSupabase, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const { language } = req.body ?? {};
+
+      if (language !== undefined) {
+        if (typeof language !== "string" || !SUPPORTED_LANGUAGES.includes(language)) {
+          return res.status(400).json({
+            message: `Invalid language. Supported: ${SUPPORTED_LANGUAGES.join(", ")}`,
+          });
+        }
+      }
+
+      const updated = await storage.updateMerchant(req.user.id, {
+        ...(language !== undefined && { language }),
+      });
+
+      if (!updated) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      logger.info(`User preferences updated for merchant ${req.user.id}`, { language });
+      res.json(updated);
+    } catch (error) {
+      logger.error(`Error updating user preferences: ${sanitizeError(error)}`);
+      res.status(500).json({ message: "Server error" });
+    }
   });
 
   // POST /api/logout - Clear any client-side state (Supabase handles actual logout)

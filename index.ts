@@ -55,7 +55,7 @@ app.use(cors({
     'https://api.eazmenu.com',
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-Type'],
 }));
 
@@ -107,16 +107,16 @@ app.use((req, res, next) => {
     // Serve static assets
     app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
     app.use('/customer', express.static(path.join(__dirname, '../public/customer')));
-    
+
     // Handle subdomain routing for SPAs
     app.get('*', (req, res) => {
       const subdomain = req.hostname.split('.')[0];
-      
+
       // Skip API routes
       if (req.path.startsWith('/api') || req.path.startsWith('/ws')) {
         return res.status(404).json({ message: 'Not found' });
       }
-      
+
       if (subdomain === 'admin') {
         res.sendFile(path.join(__dirname, '../public/admin/index.html'));
       } else if (subdomain === 'customer') {
@@ -130,7 +130,7 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status ?? err.statusCode ?? 500;
-    
+
     // Sanitize error messages in staging AND production
     const isProductionLike = process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging";
     const message = isProductionLike
@@ -138,7 +138,7 @@ app.use((req, res, next) => {
       : err.message ?? "Internal Server Error";
 
     res.status(status).json({ message });
-    
+
     // Log using Winston with appropriate levels
     if (status >= 500) {
       logger.error(`${err.name || 'Error'} ${status}: ${err.message}`);
@@ -172,7 +172,7 @@ app.use((req, res, next) => {
   // Graceful shutdown handling
   const shutdown = (signal: string) => {
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
-    
+
     // Stop background workers
     stopOrphanCleanupWorker();
 
@@ -181,11 +181,11 @@ app.use((req, res, next) => {
         logger.error(`Error during server shutdown: ${sanitizeError(err)}`);
         process.exit(1);
       }
-      
+
       logger.info('Server closed successfully');
       process.exit(0);
     });
-    
+
     // Force shutdown after 10 seconds
     setTimeout(() => {
       logger.warn('Forcefully shutting down after timeout');
