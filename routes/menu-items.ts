@@ -106,7 +106,6 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
       active: req.body.active === true || req.body.active === 'true',
       isBio: req.body.isBio === true || req.body.isBio === 'true',
       isFeatured: req.body.isFeatured === true || req.body.isFeatured === 'true',
-      isAvailable: req.body.isAvailable === undefined || req.body.isAvailable === true || req.body.isAvailable === 'true',
       // Parse allergens from form data (comma-separated or JSON array)
       allergens: req.body.allergens
         ? (typeof req.body.allergens === 'string'
@@ -200,7 +199,6 @@ router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('imag
       updateData.active = req.body.active === true || req.body.active === 'true';
       updateData.isBio = req.body.isBio === true || req.body.isBio === 'true';
       updateData.isFeatured = req.body.isFeatured === true || req.body.isFeatured === 'true';
-      updateData.isAvailable = req.body.isAvailable === undefined || req.body.isAvailable === true || req.body.isAvailable === 'true';
       // Parse allergens from form data (comma-separated or JSON array)
       if (req.body.allergens !== undefined) {
         updateData.allergens = req.body.allergens
