@@ -345,26 +345,10 @@ async function createMerchantFromSupabaseUser(
     provider: profile.provider,
   });
 
-  // Create default restaurant for the merchant
-  const restaurantName = profile.displayName ?? username;
-  const defaultRestaurant = await storage.createRestaurant({
-    name: `${restaurantName}'s Restaurant`,
-    address: "Default Address - Please Update",
-    phone: null,
-    email: profile.email,
-    merchantId: merchant.id,
-  });
+  // Restaurant and language are created during onboarding, not here.
+  // The admin app redirects new merchants (with 0 restaurants) to /onboarding.
 
-  // Create default English language for the restaurant
-  await storage.createLanguage({
-    code: "en",
-    name: "English",
-    active: true,
-    isPrimary: true,
-    restaurantId: defaultRestaurant.id,
-  });
-
-  logger.info(`Created new merchant ${merchant.id} with restaurant ${defaultRestaurant.id}`);
+  logger.info(`Created new merchant ${merchant.id} — awaiting onboarding`);
 
   return merchant;
 }

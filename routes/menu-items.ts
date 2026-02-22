@@ -51,12 +51,12 @@ router.get("/api/menu-items/:menuItemId/ingredients", authenticate, async (req, 
     if (isNaN(menuItemId)) {
       return res.status(400).json({ message: "Invalid menu item ID" });
     }
-    
+
     const menuItem = await checkMenuItemOwnership(menuItemId, req.user!.id);
     if (!menuItem) {
       return res.status(403).json({ message: "Menu item not found or access denied" });
     }
-    
+
     const ingredients = await db.query.menuItemIngredients.findMany({
       where: eq(menuItemIngredients.menuItemId, menuItemId),
       with: {
@@ -67,7 +67,7 @@ router.get("/api/menu-items/:menuItemId/ingredients", authenticate, async (req, 
         },
       },
     });
-    
+
     res.json(ingredients.map(mi => mi.ingredient));
   } catch (error) {
     logger.error(`Error fetching menu item ingredients: ${sanitizeError(error)}`);
@@ -87,7 +87,7 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
       }
       return res.status(400).json({ message: "Valid categoryId is required" });
     }
-    
+
     const category = await checkCategoryOwnership(categoryId, req.user!.id);
     if (!category) {
       // Clean up uploaded file if validation fails
@@ -96,7 +96,7 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
       }
       return res.status(403).json({ message: "Category not found or access denied" });
     }
-    
+
     // Prepare data for validation - handle image upload
     const requestData = {
       ...req.body,
@@ -106,29 +106,30 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
       active: req.body.active === true || req.body.active === 'true',
       isBio: req.body.isBio === true || req.body.isBio === 'true',
       isFeatured: req.body.isFeatured === true || req.body.isFeatured === 'true',
+      isAvailable: req.body.isAvailable === undefined || req.body.isAvailable === true || req.body.isAvailable === 'true',
       // Parse allergens from form data (comma-separated or JSON array)
-      allergens: req.body.allergens 
-        ? (typeof req.body.allergens === 'string' 
-          ? (req.body.allergens.startsWith('[') 
-            ? JSON.parse(req.body.allergens) 
+      allergens: req.body.allergens
+        ? (typeof req.body.allergens === 'string'
+          ? (req.body.allergens.startsWith('[')
+            ? JSON.parse(req.body.allergens)
             : req.body.allergens.split(',').filter(Boolean))
           : req.body.allergens)
         : null,
       // Use Supabase URL from middleware, or fallback to provided imageUrl
       imageUrl: (req as any).uploadedImageUrl || req.body.imageUrl || null
     };
-    
+
     const validatedData = insertMenuItemSchema.parse(requestData);
-    
+
     const menuItem = await storage.createMenuItem(validatedData);
-    
+
     // Handle ingredients if provided
     const ingredientIds = req.body.ingredientIds;
     if (ingredientIds) {
       const parsedIngredientIds = typeof ingredientIds === 'string'
         ? (ingredientIds.startsWith('[') ? JSON.parse(ingredientIds) : ingredientIds.split(',').map(Number).filter(Boolean))
         : ingredientIds;
-      
+
       if (Array.isArray(parsedIngredientIds) && parsedIngredientIds.length > 0) {
         await db.insert(menuItemIngredients).values(
           parsedIngredientIds.map((ingredientId: number) => ({
@@ -138,14 +139,14 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
         );
       }
     }
-    
+
     res.status(201).json(menuItem);
   } catch (error) {
     // Clean up uploaded file if error occurs
     if ((req as any).uploadedFileName) {
       await deleteUploadedFile((req as any).uploadedFileName);
     }
-    
+
     if (error instanceof z.ZodError) {
       return res.status(400).json({ errors: (error as z.ZodError).issues });
     }
@@ -165,7 +166,7 @@ router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('imag
       }
       return res.status(400).json({ message: "Invalid menu item ID" });
     }
-    
+
     const menuItem = await checkMenuItemOwnership(menuItemId, req.user!.id);
     if (!menuItem) {
       // Clean up uploaded file if validation fails
@@ -174,13 +175,13 @@ router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('imag
       }
       return res.status(403).json({ message: "Menu item not found or access denied" });
     }
-    
+
     // Prepare update data - handle image upload
     const updateData: any = {
       ...req.body,
       updatedAt: new Date()
     };
-    
+
     // Handle image upload - if new image is uploaded, delete old one and set new URL
     if ((req as any).uploadedImageUrl) {
       // Delete old image if it exists and is our uploaded file
@@ -199,29 +200,30 @@ router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('imag
       updateData.active = req.body.active === true || req.body.active === 'true';
       updateData.isBio = req.body.isBio === true || req.body.isBio === 'true';
       updateData.isFeatured = req.body.isFeatured === true || req.body.isFeatured === 'true';
+      updateData.isAvailable = req.body.isAvailable === undefined || req.body.isAvailable === true || req.body.isAvailable === 'true';
       // Parse allergens from form data (comma-separated or JSON array)
       if (req.body.allergens !== undefined) {
-        updateData.allergens = req.body.allergens 
-          ? (typeof req.body.allergens === 'string' 
-            ? (req.body.allergens.startsWith('[') 
-              ? JSON.parse(req.body.allergens) 
+        updateData.allergens = req.body.allergens
+          ? (typeof req.body.allergens === 'string'
+            ? (req.body.allergens.startsWith('[')
+              ? JSON.parse(req.body.allergens)
               : req.body.allergens.split(',').filter(Boolean))
             : req.body.allergens)
           : null;
       }
     }
-    
+
     // Handle ingredients if provided (replace all existing)
     const ingredientIds = req.body.ingredientIds;
     if (ingredientIds !== undefined) {
       // Delete existing ingredients for this menu item
       await db.delete(menuItemIngredients).where(eq(menuItemIngredients.menuItemId, menuItemId));
-      
+
       // Add new ingredients if provided
       const parsedIngredientIds = typeof ingredientIds === 'string'
         ? (ingredientIds.startsWith('[') ? JSON.parse(ingredientIds) : ingredientIds.split(',').map(Number).filter(Boolean))
         : ingredientIds;
-      
+
       if (Array.isArray(parsedIngredientIds) && parsedIngredientIds.length > 0) {
         await db.insert(menuItemIngredients).values(
           parsedIngredientIds.map((ingredientId: number) => ({
@@ -231,7 +233,7 @@ router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('imag
         );
       }
     }
-    
+
     const updated = await storage.updateMenuItem(menuItemId, updateData, req.user!.id);
     if (!updated) {
       // Clean up uploaded file if update fails
@@ -246,7 +248,7 @@ router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('imag
     if ((req as any).uploadedFileName) {
       await deleteUploadedFile((req as any).uploadedFileName);
     }
-    
+
     logger.error(`Error updating menu item: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
   }
@@ -259,12 +261,12 @@ router.delete("/api/menu-items/:id", authenticate, async (req, res) => {
     if (isNaN(menuItemId)) {
       return res.status(400).json({ message: "Invalid menu item ID" });
     }
-    
+
     const menuItem = await checkMenuItemOwnership(menuItemId, req.user!.id);
     if (!menuItem) {
       return res.status(403).json({ message: "Menu item not found or access denied" });
     }
-    
+
     // Delete associated image file if it exists and is our uploaded file
     if ((menuItem as any).imageUrl) {
       const filename = getFilenameFromUrl((menuItem as any).imageUrl);
@@ -272,7 +274,7 @@ router.delete("/api/menu-items/:id", authenticate, async (req, res) => {
         await deleteUploadedFile(filename);
       }
     }
-    
+
     const success = await storage.deleteMenuItem(menuItemId, req.user!.id);
     if (!success) {
       return res.status(404).json({ message: "Menu item not found or could not be deleted" });
