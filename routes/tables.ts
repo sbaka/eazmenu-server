@@ -171,7 +171,8 @@ router.get("/api/tables/qrcodes/all", authenticate, rateLimits.heavy, async (req
           const apiHost = process.env.API_DOMAIN || req.headers.host || "localhost:3002";
           const protocol = process.env.NODE_ENV === 'production' ? 'https' : (req.protocol || "http");
           // Generate URL that redirects to customer menu API with QR code
-          const menuUrl = `${protocol}://${apiHost}/api/customer/menu?qrCode=${table.qrCode}&lang=en`;
+          // No lang param — the server redirect will use the restaurant's primary language
+          const menuUrl = `${protocol}://${apiHost}/api/customer/menu?qrCode=${table.qrCode}`;
 
           // Generate QR code as data URL
           const qrCodeDataUrl = await QRCode.toDataURL(menuUrl);
@@ -223,7 +224,8 @@ router.get("/api/tables/:id/qrcode", authenticate, async (req, res) => {
     const apiHost = process.env.API_DOMAIN || req.headers.host || "localhost:3002";
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : (req.protocol || "http");
     // Generate URL that redirects to customer menu API with QR code
-    const menuUrl = `${protocol}://${apiHost}/api/customer/menu?qrCode=${table.qrCode}&lang=en`;
+    // No lang param — the server redirect will use the restaurant's primary language
+    const menuUrl = `${protocol}://${apiHost}/api/customer/menu?qrCode=${table.qrCode}`;
     const qrCodeDataUrl = await QRCode.toDataURL(menuUrl);
 
     const response: SingleTableWithQrCodeImage = {
@@ -393,7 +395,7 @@ router.get(
         {
           tableNumber: table.number,
           tableId: table.id,
-          menuUrl: `${protocol}://${apiHost}/api/customer/menu?qrCode=${table.qrCode}&lang=en`,
+          menuUrl: `${protocol}://${apiHost}/api/customer/menu?qrCode=${table.qrCode}`,
         },
       ];
 

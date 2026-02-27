@@ -4,13 +4,13 @@ import logger, { sanitizeError } from "../logger";
 import type { CustomerMenuResponse } from "@sbaka/shared";
 
 // Import services
-import { 
-  handleMenuError, 
+import {
+  handleMenuError,
   handleServerError,
-  validateCustomerMenuParams, 
+  validateCustomerMenuParams,
   validateLanguageCode,
-  redirectToCustomerMenu, 
-  DEFAULT_LANGUAGE 
+  redirectToCustomerMenu,
+  DEFAULT_LANGUAGE
 } from "../services";
 
 const router = Router();
@@ -100,30 +100,40 @@ router.get("/api/customer/menu", async (req, res) => {
   try {
     const qrCodeParam = req.query.qrCode as string;
     const languageCodeParam = req.query.lang as string;
-    
+
     // Validate input parameters
     const validation = validateCustomerMenuParams(qrCodeParam, res);
     if (!validation.isValid) {
       return;
     }
-    
+
     const qrCode = validation.qrCode!;
-    const languageCode = validateLanguageCode(languageCodeParam, DEFAULT_LANGUAGE);
-    
+    // Use provided language or leave undefined so the server picks the
+    // restaurant's primary language from the DB.
+    const hasExplicitLang = !!languageCodeParam && languageCodeParam.trim() !== '';
+    const languageCode = hasExplicitLang
+      ? validateLanguageCode(languageCodeParam, DEFAULT_LANGUAGE)
+      : undefined;
+
     // Check if menu exists by attempting to fetch it
     try {
-      await storage.getMenuByTableQrCode(qrCode, languageCode);
-      
+      // Fetch menu data — this also resolves the restaurant's primary language
+      const menuData = await storage.getMenuByTableQrCode(qrCode, languageCode);
+
+      // Determine redirect language: use the language the storage layer resolved
+      // (which is the primary language when no explicit lang was requested)
+      const resolvedLang = menuData.language?.code ?? DEFAULT_LANGUAGE;
+
       // If menu exists, redirect to customer domain
-      logger.info(`QR code redirect: ${qrCode} -> customer domain`);
-      return redirectToCustomerMenu(req, res, qrCode, languageCode);
-      
+      logger.info(`QR code redirect: ${qrCode} -> customer domain (lang=${resolvedLang})`);
+      return redirectToCustomerMenu(req, res, qrCode, resolvedLang);
+
     } catch (menuError) {
       // If menu doesn't exist or there's an error, return JSON error response
       logger.error(`Error validating menu for redirect: ${sanitizeError(menuError)}`);
       return handleMenuError(menuError, res);
     }
-    
+
   } catch (error) {
     logger.error(`Error in QR redirect: ${sanitizeError(error)}`);
     return handleServerError(res);
@@ -135,21 +145,21 @@ router.get("/api/customer/menu-data", async (req, res) => {
   try {
     const qrCodeParam = req.query.qrCode as string;
     const languageCodeParam = req.query.lang as string;
-    
+
     // Validate input parameters
     const validation = validateCustomerMenuParams(qrCodeParam, res);
     if (!validation.isValid) {
       return;
     }
-    
+
     const qrCode = validation.qrCode!;
     const languageCode = validateLanguageCode(languageCodeParam, DEFAULT_LANGUAGE);
-    
+
     // Get menu by QR code with validated language
     const menuData: CustomerMenuResponse = await storage.getMenuByTableQrCode(qrCode, languageCode);
-    
+
     return res.json(menuData);
-    
+
   } catch (error) {
     logger.error(`Error fetching customer menu: ${sanitizeError(error)}`);
     return handleMenuError(error, res);
