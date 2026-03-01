@@ -13,6 +13,7 @@ import {
   getLanguages,
   translateEntireMenu,
   getTranslationContentCounts,
+  getTranslationStatus,
 } from "../translation";
 
 const router = Router();
@@ -62,6 +63,9 @@ router.post("/api/restaurants/:restaurantId/translate-menu", authenticate, check
 
 // Get content counts for translation preview
 router.get("/api/restaurants/:restaurantId/translation-content-counts", authenticate, checkRestaurantOwnership, getTranslationContentCounts);
+
+// Get detailed translation status per language with per-item breakdown
+router.get("/api/restaurants/:restaurantId/translation-status", authenticate, checkRestaurantOwnership, getTranslationStatus);
 
 // Get all translations for a restaurant (public read)
 router.get("/api/restaurants/:restaurantId/translations", getAllRestaurantTranslations);

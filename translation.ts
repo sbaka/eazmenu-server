@@ -11,6 +11,7 @@ import {
   languages,
   menuItemTranslations,
   categoryTranslations,
+  ingredientTranslations,
   ingredients,
   restaurants,
   menuItemIngredients,
@@ -240,7 +241,10 @@ export async function updateLanguage(req: Request, res: Response) {
       return res.status(404).json({ message: "Language not found or access denied" });
     }
 
-    const language = await storage.updateLanguage(languageId, req.body);
+    // Only allow updating safe fields — strip timestamps, id, and restaurantId
+    const { id: _id, restaurantId: _rid, createdAt: _ca, updatedAt: _ua, ...safeData } = req.body;
+
+    const language = await storage.updateLanguage(languageId, safeData);
     if (!language) {
       return res.status(404).json({ message: "Language not found" });
     }
@@ -727,6 +731,160 @@ export async function translateEntireMenu(req: Request, res: Response) {
     res.status(200).json(response);
   } catch (error) {
     logger.error(`Error translating entire menu: ${sanitizeError(error)}`);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+
+// Route handler for getting detailed translation status per language
+export async function getTranslationStatus(req: Request, res: Response) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const restaurantId = parseInt(req.params.restaurantId as string);
+    if (isNaN(restaurantId)) {
+      return res.status(400).json({ message: "Invalid restaurant ID" });
+    }
+
+    // Fetch all data in parallel
+    const [restaurantLanguages, restaurantMenuItems, restaurantCategories] = await Promise.all([
+      storage.getLanguagesByRestaurantId(restaurantId),
+      storage.getMenuItemsByRestaurantId(restaurantId),
+      storage.getCategoriesByRestaurantId(restaurantId),
+    ]);
+
+    const primaryLanguage = restaurantLanguages.find((lang: any) => lang.isPrimary);
+    const secondaryLanguages = restaurantLanguages.filter((lang: any) => !lang.isPrimary && lang.active);
+
+    if (!primaryLanguage || secondaryLanguages.length === 0) {
+      return res.status(200).json({
+        primaryLanguage: primaryLanguage ?? null,
+        languages: [],
+        totalCharacters: 0,
+      });
+    }
+
+    const menuItemIds = restaurantMenuItems.map((item: any) => item.id);
+    const categoryIds = restaurantCategories.map((cat: any) => cat.id);
+    const usedIngredientIds = await getIngredientIdsByMenuItemsHelper(menuItemIds);
+
+    // Estimate total characters for translation (source text)
+    let totalCharacters = 0;
+    for (const item of restaurantMenuItems) {
+      totalCharacters += (item.name?.length || 0) + (item.description?.length || 0);
+    }
+    for (const cat of restaurantCategories) {
+      totalCharacters += cat.name?.length || 0;
+    }
+    if (usedIngredientIds.length > 0) {
+      const ingredientsData = await db.query.ingredients.findMany({
+        where: inArray(ingredients.id, usedIngredientIds),
+      });
+      for (const ing of ingredientsData) {
+        totalCharacters += ing.name?.length || 0;
+      }
+    }
+
+    // Per-language: multiply base characters by number of secondary languages
+    const totalCharactersAllLanguages = totalCharacters * secondaryLanguages.length;
+
+    // Build per-language status
+    const languageStatuses = await Promise.all(
+      secondaryLanguages.map(async (lang: any) => {
+        // Fetch existing translations for this language
+        const [existingMenuItemTrans, existingCategoryTrans, existingIngredientTrans] = await Promise.all([
+          menuItemIds.length > 0
+            ? db.query.menuItemTranslations.findMany({
+                where: and(
+                  eq(menuItemTranslations.languageId, lang.id),
+                  inArray(menuItemTranslations.menuItemId, menuItemIds)
+                ),
+              })
+            : Promise.resolve([]),
+          categoryIds.length > 0
+            ? db.query.categoryTranslations.findMany({
+                where: and(
+                  eq(categoryTranslations.languageId, lang.id),
+                  inArray(categoryTranslations.categoryId, categoryIds)
+                ),
+              })
+            : Promise.resolve([]),
+          usedIngredientIds.length > 0
+            ? db.query.ingredientTranslations.findMany({
+                where: and(
+                  eq(ingredientTranslations.languageId, lang.id),
+                  inArray(ingredientTranslations.ingredientId, usedIngredientIds)
+                ),
+              })
+            : Promise.resolve([]),
+        ]);
+
+        const translatedMenuItemIds = new Set(existingMenuItemTrans.map((t: any) => t.menuItemId));
+        const translatedCategoryIds = new Set(existingCategoryTrans.map((t: any) => t.categoryId));
+        const translatedIngredientIds = new Set(existingIngredientTrans.map((t: any) => t.ingredientId));
+
+        // Build per-item status
+        const menuItemStatuses = restaurantMenuItems.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description ?? null,
+          translated: translatedMenuItemIds.has(item.id),
+          characters: (item.name?.length || 0) + (item.description?.length || 0),
+        }));
+
+        const categoryStatuses = restaurantCategories.map((cat: any) => ({
+          id: cat.id,
+          name: cat.name,
+          translated: translatedCategoryIds.has(cat.id),
+          characters: cat.name?.length || 0,
+        }));
+
+        const untranslatedMenuItems = menuItemStatuses.filter((s: any) => !s.translated).length;
+        const untranslatedCategories = categoryStatuses.filter((s: any) => !s.translated).length;
+        const untranslatedIngredients = usedIngredientIds.filter((id: number) => !translatedIngredientIds.has(id)).length;
+
+        // Characters of untranslated content for this language
+        const untranslatedCharacters =
+          menuItemStatuses.filter((s: any) => !s.translated).reduce((sum: number, s: any) => sum + s.characters, 0) +
+          categoryStatuses.filter((s: any) => !s.translated).reduce((sum: number, s: any) => sum + s.characters, 0);
+
+        return {
+          language: lang,
+          menuItems: {
+            total: restaurantMenuItems.length,
+            translated: translatedMenuItemIds.size,
+            untranslated: untranslatedMenuItems,
+            items: menuItemStatuses,
+          },
+          categories: {
+            total: restaurantCategories.length,
+            translated: translatedCategoryIds.size,
+            untranslated: untranslatedCategories,
+            items: categoryStatuses,
+          },
+          ingredients: {
+            total: usedIngredientIds.length,
+            translated: translatedIngredientIds.size,
+            untranslated: untranslatedIngredients,
+          },
+          untranslatedCharacters,
+          isFullyTranslated:
+            untranslatedMenuItems === 0 &&
+            untranslatedCategories === 0 &&
+            untranslatedIngredients === 0,
+        };
+      })
+    );
+
+    res.status(200).json({
+      primaryLanguage,
+      languages: languageStatuses,
+      totalCharacters: totalCharactersAllLanguages,
+    });
+  } catch (error) {
+    logger.error(`Error fetching translation status: ${sanitizeError(error)}`);
     res.status(500).json({ message: "Server error" });
   }
 }
