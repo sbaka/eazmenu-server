@@ -282,4 +282,43 @@ router.put("/api/orders/:id/status", authenticate, async (req, res) => {
   }
 });
 
+// Toggle order hidden status (staff only)
+router.put("/api/orders/:id/hidden", authenticate, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id as string);
+    if (isNaN(orderId)) {
+      return res.status(400).json({ message: "Invalid order ID" });
+    }
+
+    // Verify ownership - order's restaurant must belong to merchant
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+      with: { restaurant: true }
+    });
+
+    if (!order || order.restaurant.merchantId !== req.user!.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const { hidden } = req.body;
+    if (typeof hidden !== 'boolean') {
+      return res.status(400).json({ message: "hidden (boolean) is required" });
+    }
+
+    const updated = await storage.toggleOrderHidden(orderId, hidden, req.user!.id);
+    if (!updated) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Get complete order with items
+    const completeOrder = await storage.getOrderWithItems(orderId, req.user!.id);
+    // Supabase postgres_changes auto-broadcasts the UPDATE to all subscribers
+
+    res.json(completeOrder);
+  } catch (error) {
+    logger.error(`Error toggling order hidden: ${sanitizeError(error)}`);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router; 

@@ -796,12 +796,9 @@ class DatabaseStorage implements IStorage {
       }
     }
 
-    // Optimized: exclude hidden orders and limit results
+    // Return all orders for admin view (including hidden ones)
     return await db.query.orders.findMany({
-      where: and(
-        eq(orders.restaurantId, restaurantId),
-        eq(orders.hidden, false)
-      ),
+      where: eq(orders.restaurantId, restaurantId),
       orderBy: desc(orders.createdAt),
       with: {
         table: true,
@@ -868,6 +865,24 @@ class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(orders)
       .set(updatePayload)
+      .where(eq(orders.id, id))
+      .returning();
+    return updated;
+  }
+
+  async toggleOrderHidden(id: number, hidden: boolean, merchantId?: number) {
+    // If merchantId provided, verify order ownership via restaurant
+    if (merchantId !== undefined) {
+      const { checkOrderOwnership } = await import('./middleware');
+      const order = await checkOrderOwnership(id, merchantId);
+      if (!order) {
+        throw new Error("ORDER_NOT_FOUND_OR_ACCESS_DENIED");
+      }
+    }
+
+    const [updated] = await db
+      .update(orders)
+      .set({ hidden, updatedAt: new Date() })
       .where(eq(orders.id, id))
       .returning();
     return updated;
