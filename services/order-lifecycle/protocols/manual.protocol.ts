@@ -1,9 +1,9 @@
-import type { 
-  OrderLifecycleProtocol, 
-  OrderForLifecycle, 
+import type {
+  OrderLifecycleProtocol,
+  OrderForLifecycle,
   RestaurantProtocolConfig,
   HideCheckResult,
-  TableResetCheckResult 
+  TableResetCheckResult
 } from '../protocol.interface';
 import type { SupabaseBroadcaster } from '../supabase-broadcaster';
 
@@ -24,22 +24,22 @@ import type { SupabaseBroadcaster } from '../supabase-broadcaster';
 export class ManualProtocol implements OrderLifecycleProtocol {
   readonly name = 'manual';
   readonly description = 'Staff-controlled: orders hidden only when staff resets table';
-  
+
   getDefaultHideDelayMinutes(): number {
     // Manual protocol doesn't use time-based hiding
     // Return a large number to indicate "never" for automatic cleanup
     return Number.MAX_SAFE_INTEGER;
   }
-  
+
   shouldHideOrder(_order: OrderForLifecycle, _config: RestaurantProtocolConfig): HideCheckResult {
     // Manual protocol never automatically hides orders
     // Staff must explicitly trigger hiding via API
-    return { 
+    return {
       shouldHide: false,
       reason: 'manual_protocol_no_auto_hide'
     };
   }
-  
+
   shouldResetTable(_tableId: number, _remainingActiveOrders: OrderForLifecycle[]): TableResetCheckResult {
     // Manual protocol never automatically resets tables
     // Staff must explicitly trigger reset via API
@@ -48,19 +48,10 @@ export class ManualProtocol implements OrderLifecycleProtocol {
       message: 'Manual reset required by staff',
     };
   }
-  
-  /**
-   * Called when staff manually hides an order via API
-   */
-  async onOrderHidden(order: OrderForLifecycle, broadcaster: SupabaseBroadcaster): Promise<void> {
-    await broadcaster.broadcastOrderHidden(
-      order.tableId,
-      order.id,
-      order.orderNumber,
-      'staff_hidden'
-    );
-  }
-  
+
+  // onOrderHidden is intentionally omitted — Supabase postgres_changes
+  // automatically broadcasts the UPDATE (hidden=true) to all subscribers.
+
   /**
    * Called when staff manually resets a table via API
    */

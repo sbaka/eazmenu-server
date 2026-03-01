@@ -5,14 +5,6 @@ import logger from "../logger";
 const CLEANUP_INTERVAL_MS = 60 * 1000;
 
 /**
- * @deprecated This function is no longer used.
- * The protocol manager now handles broadcasting via Supabase Realtime.
- */
-export function setOrderCleanupBroadcast(_broadcastFn: (tableId: number, data: any) => void): void {
-  logger.warn('setOrderCleanupBroadcast is deprecated. Broadcasting is now handled by SupabaseBroadcaster.');
-}
-
-/**
  * Runs the cleanup logic for served orders using the Order Lifecycle Protocol system.
  * 
  * Each restaurant can have its own protocol configuration:
@@ -30,7 +22,7 @@ export function setOrderCleanupBroadcast(_broadcastFn: (tableId: number, data: a
 async function cleanupServedOrders(): Promise<void> {
   try {
     const result = await protocolManager.runCleanupCycle();
-    
+
     if (result.hiddenCount > 0 || result.resetTables > 0) {
       logger.info(`Order cleanup: ${result.hiddenCount} orders hidden, ${result.resetTables} tables reset`);
     }
@@ -50,12 +42,12 @@ export function startOrderCleanupWorker(): void {
     logger.warn('Order cleanup worker already running');
     return;
   }
-  
+
   logger.info('Starting order cleanup worker with protocol system (interval: 60s)');
-  
+
   // Run immediately on startup
   cleanupServedOrders();
-  
+
   // Then run at regular intervals
   cleanupIntervalId = setInterval(cleanupServedOrders, CLEANUP_INTERVAL_MS);
 }

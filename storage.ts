@@ -132,7 +132,6 @@ interface IStorage {
   deleteTable: (id: number, merchantId?: number) => Promise<boolean>;
 
   // Order methods
-  createOrder: (orderData: Omit<InsertOrder, "id">) => Promise<typeof orders.$inferSelect>;
   getOrdersByTableId: (tableId: number, merchantId?: number) => Promise<(typeof orders.$inferSelect)[]>;
   getOrdersByRestaurantId: (restaurantId: number, merchantId?: number) => Promise<OrderWithItemsResponse[]>;
   getOrdersByTable: (tableId: number) => Promise<(typeof orders.$inferSelect)[]>;
@@ -721,17 +720,6 @@ class DatabaseStorage implements IStorage {
   }
 
   // Order methods
-  async createOrder(orderData: Omit<InsertOrder, "id">) {
-    // Legacy method - use createOrderWithItems for new code
-    const [order] = await db.insert(orders).values({
-      orderNumber: orderData.orderNumber,
-      tableId: orderData.tableId,
-      status: orderData.status,
-      restaurantId: orderData.restaurantId,
-      total: orderData.total
-    }).returning();
-    return order;
-  }
 
   // Transaction-safe order creation with items
   async createOrderWithItems({ orderData, orderItems: orderItemsList }: CreateOrderWithItemsParams) {
