@@ -2,6 +2,10 @@ import { Router } from "express";
 import { storage } from "../storage";
 import logger, { sanitizeError } from "../logger";
 import type { CustomerMenuResponse } from "@sbaka/shared";
+import { languages as langTable } from "@sbaka/shared";
+import { authenticate } from "../middleware";
+import { db } from "@db";
+import { eq, and, desc } from "drizzle-orm";
 
 // Import services
 import {
@@ -165,5 +169,101 @@ router.get("/api/customer/menu-data", async (req, res) => {
     return handleMenuError(error, res);
   }
 });
+
+// =============================================================================
+// PREVIEW ENDPOINT — Authenticated, for admin visual editor iframe
+// =============================================================================
+// GET /api/customer/preview-data?restaurantId={id}&lang={languageCode}
+// Requires merchant authentication + restaurant ownership.
+// Returns same CustomerMenuResponse shape with a dummy table.
+router.get(
+  "/api/customer/preview-data",
+  authenticate,
+  async (req, res) => {
+    try {
+      const restaurantIdParam = req.query.restaurantId as string;
+      const languageCodeParam = req.query.lang as string;
+
+      if (!restaurantIdParam || isNaN(Number(restaurantIdParam))) {
+        return res.status(400).json({ error: "MISSING_RESTAURANT_ID", message: "restaurantId query parameter is required" });
+      }
+
+      const restaurantId = Number(restaurantIdParam);
+
+      // Verify ownership
+      const restaurant = await storage.getRestaurantById(restaurantId);
+      if (!restaurant) {
+        return res.status(404).json({ error: "RESTAURANT_NOT_FOUND", message: "Restaurant not found" });
+      }
+      if (restaurant.merchantId !== (req.user as any)?.id) {
+        return res.status(403).json({ error: "FORBIDDEN", message: "Not your restaurant" });
+      }
+
+      // Find any table for this restaurant to get a valid QR code,
+      // or build the response manually if none exists
+      const tables = await storage.getTablesByRestaurantId(restaurantId);
+      if (tables.length > 0 && tables[0].qrCode) {
+        const languageCode = languageCodeParam
+          ? validateLanguageCode(languageCodeParam, DEFAULT_LANGUAGE)
+          : undefined;
+
+        const menuData: CustomerMenuResponse = await storage.getMenuByTableQrCode(
+          tables[0].qrCode,
+          languageCode
+        );
+        return res.json(menuData);
+      }
+
+      // No tables — build a minimal response so the preview still renders
+      const availableLanguages = await db.query.languages.findMany({
+        where: and(
+          eq(langTable.restaurantId, restaurantId),
+          eq(langTable.active, true)
+        ),
+        orderBy: [desc(langTable.isPrimary), langTable.name],
+      });
+
+      const primaryLang = availableLanguages.find(l => l.isPrimary) ?? availableLanguages[0] ?? {
+        id: 0, code: "en", name: "English", active: true, isPrimary: true,
+        restaurantId, createdAt: new Date(), updatedAt: new Date(),
+      };
+
+      const getCurrencySymbol = (code: string) => {
+        const map: Record<string, string> = { USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$', JPY: '¥', MAD: 'د.م.' };
+        return map[code] ?? code;
+      };
+
+      return res.json({
+        restaurant: {
+          id: restaurant.id,
+          name: restaurant.name,
+          address: restaurant.address ?? '',
+          phone: restaurant.phone ?? null,
+          email: restaurant.email ?? null,
+          chefMessage: restaurant.chefMessage ?? null,
+          themeConfig: restaurant.themeConfig ?? null,
+          currency: restaurant.currency ?? 'USD',
+          currencySymbol: getCurrencySymbol(restaurant.currency ?? 'USD'),
+          bannerUrl: restaurant.bannerUrl ?? null,
+          logoUrl: restaurant.logoUrl ?? null,
+          googleMapsUrl: restaurant.googleMapsUrl ?? null,
+          websiteUrl: restaurant.websiteUrl ?? null,
+          instagramUrl: restaurant.instagramUrl ?? null,
+          facebookUrl: restaurant.facebookUrl ?? null,
+          tiktokUrl: restaurant.tiktokUrl ?? null,
+        },
+        table: { id: 0, number: 0, seats: 0 },
+        language: primaryLang,
+        availableLanguages: availableLanguages.length > 0 ? availableLanguages : [primaryLang],
+        categories: [],
+        menu: [],
+      } satisfies CustomerMenuResponse);
+
+    } catch (error) {
+      logger.error(`Error fetching preview data: ${sanitizeError(error)}`);
+      return handleServerError(res);
+    }
+  }
+);
 
 export default router; 
