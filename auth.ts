@@ -199,6 +199,9 @@ function extractBearerToken(req: Request): string | null {
   return authHeader.substring(7);
 }
 
+const DISPLAY_NAME_MIN_LENGTH = 2;
+const DISPLAY_NAME_MAX_LENGTH = 100;
+
 /**
  * Supabase Authentication middleware
  * Validates Supabase JWT and attaches user to request
@@ -420,6 +423,79 @@ export function setupAuth(app: Express) {
     } catch (error) {
       logger.error(`Error updating user preferences: ${sanitizeError(error)}`);
       res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // PATCH /api/user/profile - Update user profile fields managed by our app
+  app.patch("/api/user/profile", authenticateSupabase, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const { displayName } = req.body ?? {};
+
+      if (displayName === undefined || typeof displayName !== "string") {
+        return res.status(400).json({ message: "Display name is required" });
+      }
+
+      const normalizedDisplayName = displayName.trim();
+
+      if (
+        normalizedDisplayName.length < DISPLAY_NAME_MIN_LENGTH ||
+        normalizedDisplayName.length > DISPLAY_NAME_MAX_LENGTH
+      ) {
+        return res.status(400).json({
+          message: `Display name must be ${DISPLAY_NAME_MIN_LENGTH}-${DISPLAY_NAME_MAX_LENGTH} characters`,
+        });
+      }
+
+      if (normalizedDisplayName === (req.user.displayName ?? "")) {
+        return res.json(req.user);
+      }
+
+      const updatedMerchant = await storage.updateMerchant(req.user.id, { displayName: normalizedDisplayName });
+      if (!updatedMerchant) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Keep Supabase user_metadata in sync so auth profile normalization stays consistent.
+      if (supabaseAdmin && req.user.supabaseUserId) {
+        try {
+          const currentMetadata = (req.supabaseUser?.user_metadata ?? {}) as Record<string, unknown>;
+          const { error } = await (supabaseAdmin.auth as any).admin.updateUserById(req.user.supabaseUserId, {
+            user_metadata: {
+              ...currentMetadata,
+              full_name: normalizedDisplayName,
+              name: normalizedDisplayName,
+            },
+          });
+
+          if (error) {
+            logger.warn("Failed to sync display name to Supabase user metadata", {
+              merchantId: req.user.id,
+              supabaseUserId: req.user.supabaseUserId,
+              error: error.message,
+            });
+          }
+        } catch (syncError) {
+          logger.warn("Unexpected error while syncing display name to Supabase", {
+            merchantId: req.user.id,
+            supabaseUserId: req.user.supabaseUserId,
+            error: sanitizeError(syncError),
+          });
+        }
+      }
+
+      logger.info(`Display name updated for merchant ${req.user.id}`, {
+        previousDisplayName: req.user.displayName,
+        newDisplayName: normalizedDisplayName,
+      });
+
+      return res.json(updatedMerchant);
+    } catch (error) {
+      logger.error(`Error updating user profile: ${sanitizeError(error)}`);
+      return res.status(500).json({ message: "Server error" });
     }
   });
 
