@@ -2,7 +2,7 @@ import { Router } from "express";
 import { storage } from "../storage";
 import logger, { sanitizeError } from "../logger";
 import type { CustomerMenuResponse } from "@sbaka/shared";
-import { languages as langTable } from "@sbaka/shared";
+import { languages as langTable, restaurants, tables } from "@sbaka/shared";
 import { authenticate } from "../middleware";
 import { db } from "@db";
 import { eq, and, desc } from "drizzle-orm";
@@ -98,6 +98,53 @@ const router = Router();
 // =============================================================================
 // ROUTE HANDLERS
 // =============================================================================
+
+// Public endpoint - list all restaurants (basic info only for discovery)
+router.get("/api/customer/restaurants", async (_req, res) => {
+  try {
+    const allRestaurants = await db.query.restaurants.findMany({
+      columns: {
+        id: true,
+        name: true,
+        address: true,
+        logoUrl: true,
+        bannerUrl: true,
+        description: true,
+        currency: true,
+      },
+      orderBy: [restaurants.name],
+    });
+
+    // For each restaurant, grab the first active table's QR code so
+    // customers can navigate directly from the discovery list.
+    const restaurantIds = allRestaurants.map(r => r.id);
+    const activeTables = restaurantIds.length > 0
+      ? await db.query.tables.findMany({
+          columns: { restaurantId: true, qrCode: true },
+          where: eq(tables.active, true),
+          orderBy: tables.number,
+        })
+      : [];
+
+    // Build a map: restaurantId → first active QR code
+    const qrMap = new Map<number, string>();
+    for (const t of activeTables) {
+      if (!qrMap.has(t.restaurantId)) {
+        qrMap.set(t.restaurantId, t.qrCode);
+      }
+    }
+
+    const result = allRestaurants.map(r => ({
+      ...r,
+      qrCode: qrMap.get(r.id) ?? null,
+    }));
+
+    return res.json(result);
+  } catch (error) {
+    logger.error(`Error listing restaurants: ${sanitizeError(error)}`);
+    return handleServerError(res);
+  }
+});
 
 // QR Code redirect endpoint - checks menu exists and redirects to customer domain
 router.get("/api/customer/menu", async (req, res) => {
