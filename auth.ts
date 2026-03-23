@@ -90,6 +90,8 @@ interface NormalizedProfile {
   username: string;
 }
 
+const OAUTH_PROVIDERS = ['google', 'azure', 'github', 'facebook'] as const;
+
 /**
  * Gets the primary authentication provider for the user.
  * Returns the OAuth provider if available, otherwise 'email'.
@@ -102,9 +104,8 @@ function getPrimaryProvider(supabaseUser: SupabaseUser): string {
   }
 
   // Check identities for OAuth providers
-  const oauthProviders = ['google', 'azure', 'apple', 'github', 'facebook'];
   const oauthIdentity = supabaseUser.identities?.find(
-    (identity: UserIdentity) => oauthProviders.includes(identity.provider)
+    (identity: UserIdentity) => (OAUTH_PROVIDERS as readonly string[]).includes(identity.provider)
   );
 
   return oauthIdentity?.provider ?? appProvider ?? 'email';
@@ -119,9 +120,8 @@ function getIdentityData(supabaseUser: SupabaseUser): Record<string, unknown> {
     return {};
   }
 
-  const oauthProviders = ['google', 'azure', 'apple', 'github', 'facebook'];
   const oauthIdentity = supabaseUser.identities.find(
-    (identity: UserIdentity) => oauthProviders.includes(identity.provider)
+    (identity: UserIdentity) => (OAUTH_PROVIDERS as readonly string[]).includes(identity.provider)
   );
 
   const primaryIdentity = oauthIdentity ?? supabaseUser.identities[0];
