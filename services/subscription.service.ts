@@ -37,6 +37,44 @@ async function getStripe() {
   return stripe;
 }
 
+async function getAllowedPaidPriceIds(): Promise<Set<string>> {
+  const prices = await getStripePrices();
+  const allowedLookupKeys = [
+    PLAN_LOOKUP_KEYS.essentiel.monthly,
+    PLAN_LOOKUP_KEYS.essentiel.yearly,
+    PLAN_LOOKUP_KEYS.pro.monthly,
+    PLAN_LOOKUP_KEYS.pro.yearly,
+  ];
+
+  const allowed = new Set<string>();
+  for (const key of allowedLookupKeys) {
+    const price = prices.get(key);
+    if (price?.priceId) {
+      allowed.add(price.priceId);
+    }
+  }
+
+  return allowed;
+}
+
+async function getAllowedDowngradePriceIds(): Promise<Set<string>> {
+  const prices = await getStripePrices();
+  const allowedLookupKeys = [
+    PLAN_LOOKUP_KEYS.essentiel.monthly,
+    PLAN_LOOKUP_KEYS.essentiel.yearly,
+  ];
+
+  const allowed = new Set<string>();
+  for (const key of allowedLookupKeys) {
+    const price = prices.get(key);
+    if (price?.priceId) {
+      allowed.add(price.priceId);
+    }
+  }
+
+  return allowed;
+}
+
 /**
  * Create a free subscription for a merchant (permanently active, no trial)
  */
@@ -215,6 +253,11 @@ export async function createCheckoutSession(
   successUrl: string,
   cancelUrl: string,
 ): Promise<{ url: string } | null> {
+  const allowedPriceIds = await getAllowedPaidPriceIds();
+  if (!allowedPriceIds.has(priceId)) {
+    throw new Error('Invalid subscription price');
+  }
+
   const stripeInstance = await getStripe();
   if (!stripeInstance) {
     logger.warn('Stripe not configured, cannot create checkout session');
@@ -593,6 +636,11 @@ export async function downgradeSubscription(
   merchantId: number,
   priceId: string,
 ): Promise<{ success: boolean }> {
+  const allowedDowngradePriceIds = await getAllowedDowngradePriceIds();
+  if (!allowedDowngradePriceIds.has(priceId)) {
+    throw new Error('Invalid downgrade price');
+  }
+
   const stripeInstance = await getStripe();
   const subscription = await getSubscription(merchantId);
 
