@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { eq, sql, inArray } from "drizzle-orm";
 import { db } from "@db";
-import { subscriptions, merchants, type Subscription } from "@sbaka/shared";
-import { PLAN_FEATURES, FREE_TRIAL_DAYS, LOOKUP_KEY_TO_PLAN, getPlanFeatures, type PlanId, type PlanFeatures } from "@sbaka/shared";
+import { subscriptions, merchants, restaurants, categories, menuItems, tables, languages, menuItemTranslations, categoryTranslations, type Subscription } from "@sbaka/shared";
+import { PLAN_FEATURES, PLAN_LOOKUP_KEYS, FREE_TRIAL_DAYS, LOOKUP_KEY_TO_PLAN, getPlanFeatures, type PlanId, type PaidPlanId, type PlanFeatures } from "@sbaka/shared";
+import { getStripePrices } from "./stripe-price-cache.service";
 import logger from "../logger";
 
 // Lazy-loaded Stripe instance
@@ -138,6 +139,48 @@ export async function getSubscriptionWithFeatures(merchantId: number) {
   const active = isSubscriptionActive(subscription);
   const features = active ? (getPlanFeatures(subscription.planId) ?? PLAN_FEATURES.free) : null;
 
+  // Gather current usage counts across all merchant restaurants
+  const merchantRestaurants = await db.query.restaurants.findMany({
+    where: eq(restaurants.merchantId, merchantId),
+    columns: { id: true },
+  });
+  const restaurantIds = merchantRestaurants.map(r => r.id);
+
+  let menuItemsCount = 0;
+  let languagesCount = 0;
+  let translationCharacters = 0;
+
+  if (restaurantIds.length > 0) {
+    const [itemsResult, langsResult, menuCharResult, catCharResult] = await Promise.all([
+      db.select({ count: sql<number>`COUNT(*)` })
+        .from(menuItems)
+        .innerJoin(categories, eq(menuItems.categoryId, categories.id))
+        .where(inArray(categories.restaurantId, restaurantIds)),
+      db.select({ count: sql<number>`COUNT(*)` })
+        .from(languages)
+        .where(inArray(languages.restaurantId, restaurantIds)),
+      db.select({
+        totalChars: sql<number>`COALESCE(SUM(
+          COALESCE(LENGTH(${menuItemTranslations.name}), 0) +
+          COALESCE(LENGTH(${menuItemTranslations.description}), 0)
+        ), 0)`,
+      })
+        .from(menuItemTranslations)
+        .innerJoin(menuItems, eq(menuItemTranslations.menuItemId, menuItems.id))
+        .innerJoin(categories, eq(menuItems.categoryId, categories.id))
+        .where(inArray(categories.restaurantId, restaurantIds)),
+      db.select({
+        totalChars: sql<number>`COALESCE(SUM(COALESCE(LENGTH(${categoryTranslations.name}), 0)), 0)`,
+      })
+        .from(categoryTranslations)
+        .innerJoin(categories, eq(categoryTranslations.categoryId, categories.id))
+        .where(inArray(categories.restaurantId, restaurantIds)),
+    ]);
+    menuItemsCount = Number(itemsResult[0]?.count ?? 0);
+    languagesCount = Number(langsResult[0]?.count ?? 0);
+    translationCharacters = Number(menuCharResult[0]?.totalChars ?? 0) + Number(catCharResult[0]?.totalChars ?? 0);
+  }
+
   return {
     subscription: {
       id: subscription.id,
@@ -151,6 +194,12 @@ export async function getSubscriptionWithFeatures(merchantId: number) {
     },
     isActive: active,
     features,
+    usage: {
+      menuItems: menuItemsCount,
+      languages: languagesCount,
+      translationCharacters,
+      restaurants: merchantRestaurants.length,
+    },
     trialDaysRemaining: subscription.status === 'trialing' && subscription.trialEndsAt
       ? Math.max(0, Math.ceil((subscription.trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
       : null,
@@ -444,4 +493,137 @@ function resolvePlanFromLookupKey(lookupKey: string | null | undefined): PlanId 
     return LOOKUP_KEY_TO_PLAN[lookupKey].planId;
   }
   return 'essentiel'; // safe default for any paid Stripe subscription
+}
+
+/**
+ * Get a cancel preview with data counts and downgrade offer.
+ * Helps users understand what they'll lose and offers a downgrade alternative.
+ */
+export async function getCancelPreview(merchantId: number) {
+  const subscription = await getSubscription(merchantId);
+  if (!subscription || subscription.planId === 'free') {
+    throw new Error('No active paid subscription');
+  }
+
+  // Count merchant data across all restaurants
+  const merchantRestaurants = await db.query.restaurants.findMany({
+    where: eq(restaurants.merchantId, merchantId),
+    columns: { id: true },
+  });
+  const restaurantIds = merchantRestaurants.map(r => r.id);
+
+  let menuItemsCount = 0;
+  let categoriesCount = 0;
+  let tablesCount = 0;
+  let languagesCount = 0;
+
+  if (restaurantIds.length > 0) {
+    const [itemsResult, catsResult, tablesResult, langsResult] = await Promise.all([
+      db.select({ count: sql<number>`COUNT(*)` })
+        .from(menuItems)
+        .innerJoin(categories, eq(menuItems.categoryId, categories.id))
+        .where(inArray(categories.restaurantId, restaurantIds)),
+      db.select({ count: sql<number>`COUNT(*)` })
+        .from(categories)
+        .where(inArray(categories.restaurantId, restaurantIds)),
+      db.select({ count: sql<number>`COUNT(*)` })
+        .from(tables)
+        .where(inArray(tables.restaurantId, restaurantIds)),
+      db.select({ count: sql<number>`COUNT(*)` })
+        .from(languages)
+        .where(inArray(languages.restaurantId, restaurantIds)),
+    ]);
+    menuItemsCount = Number(itemsResult[0]?.count ?? 0);
+    categoriesCount = Number(catsResult[0]?.count ?? 0);
+    tablesCount = Number(tablesResult[0]?.count ?? 0);
+    languagesCount = Number(langsResult[0]?.count ?? 0);
+  }
+
+  // Determine downgrade target (Pro → Essentiel, Essentiel → no downgrade offer)
+  let downgradeOffer: {
+    planId: PaidPlanId;
+    features: PlanFeatures;
+    pricing: { monthly: { amount: number; priceId: string | null }; yearly: { amount: number; priceId: string | null } };
+  } | null = null;
+
+  if (subscription.planId === 'pro') {
+    const prices = await getStripePrices();
+    const monthlyPrice = prices.get(PLAN_LOOKUP_KEYS.essentiel.monthly);
+    const yearlyPrice = prices.get(PLAN_LOOKUP_KEYS.essentiel.yearly);
+
+    downgradeOffer = {
+      planId: 'essentiel',
+      features: PLAN_FEATURES.essentiel,
+      pricing: {
+        monthly: {
+          amount: monthlyPrice ? monthlyPrice.unitAmount / 100 : 0,
+          priceId: monthlyPrice?.priceId ?? null,
+        },
+        yearly: {
+          amount: yearlyPrice ? yearlyPrice.unitAmount / 100 : 0,
+          priceId: yearlyPrice?.priceId ?? null,
+        },
+      },
+    };
+  }
+
+  return {
+    currentPlan: {
+      planId: subscription.planId,
+      status: subscription.status,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+    },
+    dataCounts: {
+      restaurants: merchantRestaurants.length,
+      menuItems: menuItemsCount,
+      categories: categoriesCount,
+      tables: tablesCount,
+      languages: languagesCount,
+    },
+    downgradeOffer,
+  };
+}
+
+/**
+ * Downgrade a Pro subscription to Essentiel via Stripe.
+ * Switches the subscription's price item in Stripe.
+ */
+export async function downgradeSubscription(
+  merchantId: number,
+  priceId: string,
+): Promise<{ success: boolean }> {
+  const stripeInstance = await getStripe();
+  const subscription = await getSubscription(merchantId);
+
+  if (!subscription) {
+    throw new Error('No subscription found');
+  }
+
+  if (subscription.planId !== 'pro') {
+    throw new Error('Only Pro subscriptions can be downgraded');
+  }
+
+  if (!stripeInstance || !subscription.stripeSubscriptionId) {
+    throw new Error('Cannot downgrade: no active Stripe subscription');
+  }
+
+  // Retrieve the Stripe subscription to get the current item ID
+  const stripeSub = await stripeInstance.subscriptions.retrieve(subscription.stripeSubscriptionId);
+  const currentItem = stripeSub.items.data[0];
+
+  if (!currentItem) {
+    throw new Error('No subscription item found');
+  }
+
+  // Update the subscription item to the new (lower) price — prorates by default
+  await stripeInstance.subscriptions.update(subscription.stripeSubscriptionId, {
+    items: [{ id: currentItem.id, price: priceId }],
+    proration_behavior: 'create_prorations',
+    cancel_at_period_end: false,
+  });
+
+  // Local DB update will happen via the customer.subscription.updated webhook
+  logger.info(`Pro → Essentiel downgrade initiated for merchant ${merchantId}`);
+  return { success: true };
 }
