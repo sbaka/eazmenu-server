@@ -7,6 +7,7 @@ import { insertMenuItemSchema, menuItemIngredients } from "@sbaka/shared";
 import { db } from "@db";
 import { eq } from "drizzle-orm";
 import logger, { sanitizeError } from "../logger";
+import { checkFeatureAccess, checkMenuItemLimit } from "../services/plan-limits.service";
 
 const router = Router();
 
@@ -97,6 +98,39 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
       return res.status(403).json({ message: "Category not found or access denied" });
     }
 
+    // Check menu item limit (Free plan: 20 items max)
+    const menuItemLimitCheck = await checkMenuItemLimit(req.user!.id, category.restaurantId);
+    if (!menuItemLimitCheck.allowed) {
+      if ((req as any).uploadedFileName) await deleteUploadedFile((req as any).uploadedFileName);
+      return res.status(403).json({
+        message: `Menu item limit reached. Your plan allows ${menuItemLimitCheck.limit} item(s) (currently ${menuItemLimitCheck.current}).`,
+        upgradeRequired: true,
+        feature: 'maxMenuItems',
+        current: menuItemLimitCheck.current,
+        limit: menuItemLimitCheck.limit,
+      });
+    }
+
+    // Check plan-gated features
+    const wantsBio = req.body.isBio === true || req.body.isBio === 'true';
+    const wantsFeatured = req.body.isFeatured === true || req.body.isFeatured === 'true';
+
+    if (wantsBio && !(await checkFeatureAccess(req.user!.id, 'bioLabels'))) {
+      if ((req as any).uploadedFileName) await deleteUploadedFile((req as any).uploadedFileName);
+      return res.status(403).json({ message: "Bio labels are a Pro feature.", upgradeRequired: true, feature: 'bioLabels' });
+    }
+    if (wantsFeatured && !(await checkFeatureAccess(req.user!.id, 'featuredItems'))) {
+      if ((req as any).uploadedFileName) await deleteUploadedFile((req as any).uploadedFileName);
+      return res.status(403).json({ message: "Featured items are a Pro feature.", upgradeRequired: true, feature: 'featuredItems' });
+    }
+
+    // Gate nutritional info (calories) — requires Essentiel+
+    const hasCalories = req.body.calories != null && req.body.calories !== '' && req.body.calories !== 0;
+    if (hasCalories && !(await checkFeatureAccess(req.user!.id, 'nutritionalInfo'))) {
+      if ((req as any).uploadedFileName) await deleteUploadedFile((req as any).uploadedFileName);
+      return res.status(403).json({ message: "Nutritional info requires Essentiel plan or above.", upgradeRequired: true, feature: 'nutritionalInfo' });
+    }
+
     // Prepare data for validation - handle image upload
     const requestData = {
       ...req.body,
@@ -104,8 +138,8 @@ router.post("/api/menu-items", authenticate, uploadMenuItemImage.single('image')
       price: parseInt(req.body.price),
       // Handle boolean fields for both JSON (boolean) and FormData (string) formats
       active: req.body.active === true || req.body.active === 'true',
-      isBio: req.body.isBio === true || req.body.isBio === 'true',
-      isFeatured: req.body.isFeatured === true || req.body.isFeatured === 'true',
+      isBio: wantsBio,
+      isFeatured: wantsFeatured,
       // Parse allergens from form data (comma-separated or JSON array)
       allergens: req.body.allergens
         ? (typeof req.body.allergens === 'string'
@@ -173,6 +207,24 @@ router.put("/api/menu-items/:id", authenticate, uploadMenuItemImage.single('imag
         await deleteUploadedFile((req as any).uploadedFileName);
       }
       return res.status(403).json({ message: "Menu item not found or access denied" });
+    }
+
+    // Check plan-gated features on update
+    const wantsBioUpdate = req.body.isBio === true || req.body.isBio === 'true';
+    const wantsFeaturedUpdate = req.body.isFeatured === true || req.body.isFeatured === 'true';
+    const wantsCaloriesUpdate = req.body.calories != null && req.body.calories !== '' && req.body.calories !== 0;
+
+    if (wantsBioUpdate && !(await checkFeatureAccess(req.user!.id, 'bioLabels'))) {
+      if ((req as any).uploadedFileName) await deleteUploadedFile((req as any).uploadedFileName);
+      return res.status(403).json({ message: "Bio labels are a Pro feature.", upgradeRequired: true, feature: 'bioLabels' });
+    }
+    if (wantsFeaturedUpdate && !(await checkFeatureAccess(req.user!.id, 'featuredItems'))) {
+      if ((req as any).uploadedFileName) await deleteUploadedFile((req as any).uploadedFileName);
+      return res.status(403).json({ message: "Featured items are a Pro feature.", upgradeRequired: true, feature: 'featuredItems' });
+    }
+    if (wantsCaloriesUpdate && !(await checkFeatureAccess(req.user!.id, 'nutritionalInfo'))) {
+      if ((req as any).uploadedFileName) await deleteUploadedFile((req as any).uploadedFileName);
+      return res.status(403).json({ message: "Nutritional info requires Essentiel plan or above.", upgradeRequired: true, feature: 'nutritionalInfo' });
     }
 
     // Prepare update data - handle image upload

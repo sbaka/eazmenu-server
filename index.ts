@@ -67,6 +67,9 @@ app.use(cookieParser());
 // Table session middleware for customer order tracking
 app.use(tableSessionMiddleware);
 
+// Raw body parsing for Stripe webhook signature verification (must be before express.json)
+app.use('/api/subscription/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 

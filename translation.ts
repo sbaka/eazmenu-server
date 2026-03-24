@@ -19,6 +19,7 @@ import {
 import { db } from "@db";
 import { eq, and, inArray } from "drizzle-orm";
 import { translationService } from "./services/translation";
+import { checkLanguageLimit, checkTranslationCharacterLimit } from "./services/plan-limits.service";
 
 // Wrapper function to use the new translation service
 async function translateText(text: string, sourceLanguage: string, targetLanguage: string): Promise<string> {
@@ -45,7 +46,7 @@ async function translateMenuItems(
   targetLanguage: any
 ): Promise<any[]> {
   const results: any[] = [];
-  
+
   for (const menuItemId of menuItemIds) {
     const menuItem = await db.query.menuItems.findFirst({
       where: eq(menuItems.id, menuItemId),
@@ -64,7 +65,7 @@ async function translateMenuItems(
       '';
 
     const existingTranslations = await storage.getMenuItemTranslations(menuItemId, targetLanguageId);
-    
+
     if (existingTranslations.length > 0) {
       const updatedTranslation = await storage.updateMenuItemTranslation(existingTranslations[0].id, {
         name: translatedName,
@@ -81,7 +82,7 @@ async function translateMenuItems(
       results.push(newTranslation);
     }
   }
-  
+
   return results;
 }
 
@@ -94,7 +95,7 @@ async function translateCategories(
   targetLanguage: any
 ): Promise<any[]> {
   const results: any[] = [];
-  
+
   for (const categoryId of categoryIds) {
     const category = await db.query.categories.findFirst({
       where: eq(categories.id, categoryId),
@@ -108,7 +109,7 @@ async function translateCategories(
     const translatedName = await translateText(sourceName, sourceLanguage.code, targetLanguage.code);
 
     const existingTranslations = await storage.getCategoryTranslations(categoryId, targetLanguageId);
-    
+
     if (existingTranslations.length > 0) {
       const updatedTranslation = await storage.updateCategoryTranslation(existingTranslations[0].id, {
         name: translatedName,
@@ -123,7 +124,7 @@ async function translateCategories(
       results.push(newTranslation);
     }
   }
-  
+
   return results;
 }
 
@@ -136,7 +137,7 @@ async function translateIngredients(
   targetLanguage: any
 ): Promise<any[]> {
   const results: any[] = [];
-  
+
   for (const ingredientId of ingredientIds) {
     const ingredient = await db.query.ingredients.findFirst({
       where: eq(ingredients.id, ingredientId),
@@ -152,7 +153,7 @@ async function translateIngredients(
     const translatedName = await translateText(sourceName, sourceLanguage.code, targetLanguage.code);
 
     const existingTranslations = await storage.getIngredientTranslations(ingredientId, targetLanguageId);
-    
+
     if (existingTranslations.length > 0) {
       const updatedTranslation = await storage.updateIngredientTranslation(existingTranslations[0].id, {
         name: translatedName,
@@ -167,7 +168,7 @@ async function translateIngredients(
       results.push(newTranslation);
     }
   }
-  
+
   return results;
 }
 
@@ -181,6 +182,18 @@ export async function createLanguage(req: Request, res: Response) {
 
     // Get restaurantId from the URL params (validated by checkRestaurantOwnership middleware)
     const restaurantId = parseInt(req.params.restaurantId as string);
+
+    // Check language limit based on subscription plan
+    const limitCheck = await checkLanguageLimit(userId, restaurantId);
+    if (!limitCheck.allowed) {
+      return res.status(403).json({
+        message: `Language limit reached. Your plan allows ${limitCheck.limit} languages (currently ${limitCheck.current}).`,
+        upgradeRequired: true,
+        feature: 'maxLanguages',
+        current: limitCheck.current,
+        limit: limitCheck.limit,
+      });
+    }
 
     const validatedData = insertLanguageSchema.parse({
       ...req.body,
@@ -303,6 +316,23 @@ export async function createMenuItemTranslation(req: Request, res: Response) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    const restaurantId = parseInt(req.params.restaurantId as string);
+
+    // Calculate characters being added
+    const additionalCharacters = (req.body.name?.length || 0) + (req.body.description?.length || 0);
+
+    // Check translation character limit
+    const charLimit = await checkTranslationCharacterLimit(userId, restaurantId, additionalCharacters);
+    if (!charLimit.allowed) {
+      return res.status(403).json({
+        message: `Translation character limit reached. Your plan allows ${charLimit.limit} characters (currently ${charLimit.current}).`,
+        upgradeRequired: true,
+        feature: 'maxTranslationCharacters',
+        current: charLimit.current,
+        limit: charLimit.limit,
+      });
+    }
+
     const validatedData = insertMenuItemTranslationSchema.parse(req.body);
     const translation = await storage.createMenuItemTranslation(validatedData);
 
@@ -351,6 +381,28 @@ export async function createCategoryTranslation(req: Request, res: Response) {
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Get restaurantId from the category attached by ownership middleware
+    const category = (req as any).category;
+    const restaurantId = category?.restaurantId;
+    if (!restaurantId) {
+      return res.status(400).json({ message: "Could not determine restaurant for this category" });
+    }
+
+    // Calculate characters being added
+    const additionalCharacters = req.body.name?.length || 0;
+
+    // Check translation character limit
+    const charLimit = await checkTranslationCharacterLimit(userId, restaurantId, additionalCharacters);
+    if (!charLimit.allowed) {
+      return res.status(403).json({
+        message: `Translation character limit reached. Your plan allows ${charLimit.limit} characters (currently ${charLimit.current}).`,
+        upgradeRequired: true,
+        feature: 'maxTranslationCharacters',
+        current: charLimit.current,
+        limit: charLimit.limit,
+      });
     }
 
     const validatedData = insertCategoryTranslationSchema.parse(req.body);
@@ -406,6 +458,18 @@ export async function autoTranslate(req: Request, res: Response) {
 
     if (!sourceLanguageId || !targetLanguageId) {
       return res.status(400).json({ message: "Source and target language IDs are required" });
+    }
+
+    // Check translation character limit
+    const charLimit = await checkTranslationCharacterLimit(userId, restaurantId);
+    if (!charLimit.allowed) {
+      return res.status(403).json({
+        message: `Translation character limit reached. Your plan allows ${charLimit.limit} characters (currently ${charLimit.current}).`,
+        upgradeRequired: true,
+        feature: 'maxTranslationCharacters',
+        current: charLimit.current,
+        limit: charLimit.limit,
+      });
     }
 
     // Verify user owns the restaurant
@@ -619,6 +683,18 @@ export async function translateEntireMenu(req: Request, res: Response) {
       return res.status(400).json({ message: "Invalid restaurant ID" });
     }
 
+    // Check translation character limit
+    const charLimit = await checkTranslationCharacterLimit(userId, restaurantId);
+    if (!charLimit.allowed) {
+      return res.status(403).json({
+        message: `Translation character limit reached. Your plan allows ${charLimit.limit} characters (currently ${charLimit.current}).`,
+        upgradeRequired: true,
+        feature: 'maxTranslationCharacters',
+        current: charLimit.current,
+        limit: charLimit.limit,
+      });
+    }
+
     // Verify user owns the restaurant
     const restaurant = await db.query.restaurants.findFirst({
       where: and(eq(restaurants.id, restaurantId), eq(restaurants.merchantId, userId)),
@@ -797,27 +873,27 @@ export async function getTranslationStatus(req: Request, res: Response) {
         const [existingMenuItemTrans, existingCategoryTrans, existingIngredientTrans] = await Promise.all([
           menuItemIds.length > 0
             ? db.query.menuItemTranslations.findMany({
-                where: and(
-                  eq(menuItemTranslations.languageId, lang.id),
-                  inArray(menuItemTranslations.menuItemId, menuItemIds)
-                ),
-              })
+              where: and(
+                eq(menuItemTranslations.languageId, lang.id),
+                inArray(menuItemTranslations.menuItemId, menuItemIds)
+              ),
+            })
             : Promise.resolve([]),
           categoryIds.length > 0
             ? db.query.categoryTranslations.findMany({
-                where: and(
-                  eq(categoryTranslations.languageId, lang.id),
-                  inArray(categoryTranslations.categoryId, categoryIds)
-                ),
-              })
+              where: and(
+                eq(categoryTranslations.languageId, lang.id),
+                inArray(categoryTranslations.categoryId, categoryIds)
+              ),
+            })
             : Promise.resolve([]),
           usedIngredientIds.length > 0
             ? db.query.ingredientTranslations.findMany({
-                where: and(
-                  eq(ingredientTranslations.languageId, lang.id),
-                  inArray(ingredientTranslations.ingredientId, usedIngredientIds)
-                ),
-              })
+              where: and(
+                eq(ingredientTranslations.languageId, lang.id),
+                inArray(ingredientTranslations.ingredientId, usedIngredientIds)
+              ),
+            })
             : Promise.resolve([]),
         ]);
 

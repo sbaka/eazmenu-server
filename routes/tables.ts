@@ -10,6 +10,7 @@ import { insertTableSchema, restaurants, Table, tables, TableWithQrCodeImage } f
 import { db } from "@db";
 import logger, { sanitizeError } from "../logger";
 import { generateTableHashId } from "../qr-utils";
+import { checkFeatureAccess } from "../services/plan-limits.service";
 import {
   buildExportFiles,
   createZipStream,
@@ -146,6 +147,16 @@ router.delete("/api/tables/:id", authenticate, async (req, res) => {
 // Get QR images for all tables
 router.get("/api/tables/qrcodes/all", authenticate, rateLimits.heavy, async (req, res) => {
   try {
+    // Check per-table QR code feature access
+    const canUsePerTableQr = await checkFeatureAccess(req.user!.id, 'perTableQrCodes');
+    if (!canUsePerTableQr) {
+      return res.status(403).json({
+        message: "Per-table QR codes require Essentiel plan or above.",
+        upgradeRequired: true,
+        feature: 'perTableQrCodes',
+      });
+    }
+
     // Get restaurants owned by this merchant
     const restaurants = await storage.getRestaurantsByMerchantId(req.user!.id);
     if (restaurants.length === 0) {

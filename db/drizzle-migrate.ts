@@ -23,25 +23,25 @@ export async function runDrizzleMigrations(): Promise<void> {
     // Use drizzle-kit push for idempotent schema management
     // This automatically handles existing schemas and only applies necessary changes
     const { execSync } = await import('child_process');
-    
+
     logger.info('Synchronizing database schema...');
     try {
       // drizzle-kit push is idempotent and safe - it compares current schema with desired schema
-      const result = execSync('npm run db:push --workspace=apps/server', { 
+      const result = execSync('npx drizzle-kit push --force --config=./drizzle.config.ts', {
         stdio: 'pipe',
         encoding: 'utf8',
-        cwd: process.cwd() 
+        cwd: process.cwd()
       });
-      
+
       logger.info('Database schema synchronized successfully');
       if (result.includes('No changes detected')) {
         logger.info('Database schema is already up to date');
       }
-      
+
     } catch (pushError: any) {
       // If push fails, fall back to migration files
       logger.warn('Schema push failed, trying migration files...');
-      
+
       const migrationClient = postgres(process.env.DATABASE_URL!, {
         max: 1,
         ssl: (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') ? {
@@ -79,7 +79,7 @@ export async function testDatabaseConnection(): Promise<boolean> {
         rejectUnauthorized: false
       } : false
     });
-    
+
     await testClient`SELECT 1`;
     await testClient.end();
     return true;
@@ -99,7 +99,7 @@ async function ensureDatabaseExists(): Promise<void> {
 
   const url = new URL(process.env.DATABASE_URL);
   const dbName = url.pathname.slice(1); // Remove leading slash
-  
+
   if (!dbName) {
     throw new Error('Database name not found in DATABASE_URL');
   }
@@ -107,7 +107,7 @@ async function ensureDatabaseExists(): Promise<void> {
   // Create connection to postgres database to check if target database exists
   const postgresUrl = new URL(process.env.DATABASE_URL);
   postgresUrl.pathname = '/postgres';
-  
+
   const postgresPool = new pg.Pool({
     connectionString: postgresUrl.toString(),
     ssl: (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') ? {
@@ -124,7 +124,7 @@ async function ensureDatabaseExists(): Promise<void> {
 
     if (result.rows.length === 0) {
       logger.info(`Database "${dbName}" does not exist. Creating it...`);
-      
+
       // Create the database
       await postgresPool.query(`CREATE DATABASE "${dbName}"`);
       logger.info(`Database "${dbName}" created successfully`);

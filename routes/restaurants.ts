@@ -13,6 +13,8 @@ import {
   deleteUploadedFile,
   STORAGE_BUCKETS,
 } from "../middleware/upload";
+import { createFreeSubscription } from "../services/subscription.service";
+import { getThemeRestrictions, checkFeatureAccess, checkRestaurantLimit } from "../services/plan-limits.service";
 
 const router = Router();
 
@@ -93,6 +95,18 @@ router.get("/api/restaurants/:id", authenticate, rateLimits.api, async (req, res
 // Create a new restaurant
 router.post("/api/restaurants", authenticate, rateLimits.api, async (req, res) => {
   try {
+    // Check restaurant limit based on subscription plan
+    const limitCheck = await checkRestaurantLimit(req.user!.id);
+    if (!limitCheck.allowed) {
+      return res.status(403).json({
+        message: `Restaurant limit reached. Your plan allows ${limitCheck.limit} restaurant(s) (currently ${limitCheck.current}).`,
+        upgradeRequired: true,
+        feature: 'maxRestaurants',
+        current: limitCheck.current,
+        limit: limitCheck.limit,
+      });
+    }
+
     // Validate request body
     const validationResult = insertRestaurantSchema.safeParse({
       ...req.body,
@@ -100,9 +114,9 @@ router.post("/api/restaurants", authenticate, rateLimits.api, async (req, res) =
     });
 
     if (!validationResult.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Validation failed",
-        errors: validationResult.error.flatten().fieldErrors 
+        errors: validationResult.error.flatten().fieldErrors
       });
     }
 
@@ -110,6 +124,14 @@ router.post("/api/restaurants", authenticate, rateLimits.api, async (req, res) =
       ...validationResult.data,
       merchantId: req.user!.id,
     });
+
+    // Auto-create free subscription for the merchant
+    try {
+      await createFreeSubscription(req.user!.id);
+    } catch (subError) {
+      // Non-blocking: subscription creation failure shouldn't prevent restaurant creation
+      logger.warn(`Failed to create free subscription for merchant ${req.user!.id}: ${sanitizeError(subError)}`);
+    }
 
     logger.info(`Restaurant created: ${restaurant.name} by merchant ${req.user!.id}`);
     res.status(201).json(restaurant);
@@ -140,15 +162,52 @@ router.put("/api/restaurants/:id", authenticate, rateLimits.api, async (req, res
     const validationResult = updateRestaurantSchema.safeParse(req.body);
 
     if (!validationResult.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Validation failed",
-        errors: validationResult.error.flatten().fieldErrors 
+        errors: validationResult.error.flatten().fieldErrors
       });
     }
 
+    const updateData = { ...validationResult.data };
+
+    // Enforce theme restrictions based on plan
+    if (updateData.themeConfig) {
+      const themeRestrictions = await getThemeRestrictions(req.user!.id);
+      if (themeRestrictions.level === 'none') {
+        // Free plan — no theme customization allowed
+        return res.status(403).json({
+          message: "Theme customization requires Essentiel plan or above.",
+          upgradeRequired: true,
+          feature: 'themeCustomization',
+        });
+      }
+      if (themeRestrictions.level === 'basic') {
+        // Strip disallowed fields for basic plan
+        const filtered: any = {};
+        for (const field of themeRestrictions.allowedFields) {
+          if ((updateData.themeConfig as any)[field] !== undefined) {
+            filtered[field] = (updateData.themeConfig as any)[field];
+          }
+        }
+        updateData.themeConfig = filtered;
+      }
+    }
+
+    // Enforce chef message access
+    if (updateData.chefMessage !== undefined) {
+      const canUseChefMessage = await checkFeatureAccess(req.user!.id, 'chefMessage');
+      if (!canUseChefMessage) {
+        return res.status(403).json({
+          message: "Chef message is a Pro feature. Upgrade your plan to use it.",
+          upgradeRequired: true,
+          feature: 'chefMessage',
+        });
+      }
+    }
+
     const restaurant = await storage.updateRestaurant(
-      restaurantId, 
-      validationResult.data,
+      restaurantId,
+      updateData,
       req.user!.id
     );
 
@@ -203,6 +262,17 @@ router.post(
   "/api/restaurants/:id/banner",
   authenticate,
   rateLimits.api,
+  async (req, res, next) => {
+    const canUseBranding = await checkFeatureAccess(req.user!.id, 'customBranding');
+    if (!canUseBranding) {
+      return res.status(403).json({
+        message: "Custom branding is a Pro feature.",
+        upgradeRequired: true,
+        feature: 'customBranding',
+      });
+    }
+    next();
+  },
   uploadRestaurantBanner.single('image'),
   validateAndUploadBanner,
   async (req, res) => {
@@ -289,6 +359,17 @@ router.post(
   "/api/restaurants/:id/logo",
   authenticate,
   rateLimits.api,
+  async (req, res, next) => {
+    const canUseBranding = await checkFeatureAccess(req.user!.id, 'customBranding');
+    if (!canUseBranding) {
+      return res.status(403).json({
+        message: "Custom branding is a Pro feature.",
+        upgradeRequired: true,
+        feature: 'customBranding',
+      });
+    }
+    next();
+  },
   uploadRestaurantLogo.single('image'),
   validateAndUploadLogo,
   async (req, res) => {

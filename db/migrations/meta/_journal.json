@@ -57,6 +57,20 @@
       "when": 1769335200000,
       "tag": "0008_add-merchant-profile-fields",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1774350328707,
+      "tag": "0008_bitter_ultron",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774361836874,
+      "tag": "0009_long_nextwave",
+      "breakpoints": true
     }
   ]
 }
