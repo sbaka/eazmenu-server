@@ -28,6 +28,7 @@ import {
   customerOnlyRoutes,
   analyticsRoutes,
   paymentsRoutes,
+  subscriptionRoutes,
   uploadRoutes
 } from "./routes/index";
 
@@ -97,6 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(oauthRoutes);
   app.use(analyticsRoutes);
   app.use(paymentsRoutes);
+  app.use(subscriptionRoutes);
   app.use(uploadRoutes);
 
   // Graceful shutdown cleanup

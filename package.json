@@ -11,13 +11,12 @@
     "db:generate": "drizzle-kit generate --config=./drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=./drizzle.config.ts",
     "db:push": "drizzle-kit push --force --config=./drizzle.config.ts",
-    "db:seed": "tsx db/seed.ts",
     "db:seed-demo": "tsx scripts/seed-demo.ts",
     "db:init": "tsx db/init-standalone.ts"
   },
   "dependencies": {
     "@jridgewell/trace-mapping": "^0.3.25",
-    "@sbaka/shared": "1.2.3",
+    "@sbaka/shared": "^1.4.2",
     "@supabase/realtime-js": "^2.93.3",
     "@supabase/supabase-js": "^2.93.3",
     "@types/archiver": "^7.0.0",
@@ -50,6 +49,7 @@
     "postgres": "^3.4.7",
     "qrcode": "^1.5.4",
     "sharp": "^0.34.5",
+    "stripe": "^20.4.1",
     "uuid": "^13.0.0",
     "winston": "^3.17.0",
     "ws": "^8.18.0",
