@@ -12,6 +12,7 @@
     "db:migrate": "drizzle-kit migrate --config=./drizzle.config.ts",
     "db:push": "drizzle-kit push --force --config=./drizzle.config.ts",
     "db:seed-demo": "tsx scripts/seed-demo.ts",
+    "db:seed-analytics": "tsx scripts/seed-analytics.ts",
     "db:init": "tsx db/init-standalone.ts"
   },
   "dependencies": {
