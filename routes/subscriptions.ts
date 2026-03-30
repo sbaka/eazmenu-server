@@ -18,7 +18,7 @@ import logger, { sanitizeError } from "../logger";
 
 const router = Router();
 
-const stripeWebhookSecret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET;
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 // Get available plans with pricing (public - no auth required)
 // Amounts, currency and trial settings come live from Stripe (TTL-cached).
