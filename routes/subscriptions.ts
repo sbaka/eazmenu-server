@@ -10,6 +10,7 @@ import {
   handleWebhookEvent,
   getCancelPreview,
   downgradeSubscription,
+  upgradeSubscription,
 } from "../services/subscription.service";
 import { PLAN_IDS, PLAN_FEATURES, PLAN_LOOKUP_KEYS } from "@sbaka/shared";
 import { getStripePrices } from "../services/stripe-price-cache.service";
@@ -178,6 +179,29 @@ router.post("/api/subscription/downgrade", authenticate, async (req, res) => {
   } catch (error: any) {
     logger.error(`Error downgrading subscription: ${sanitizeError(error)}`);
     res.status(400).json({ message: error.message || "Failed to downgrade subscription" });
+  }
+});
+
+// Upgrade subscription (Essentiel → Pro)
+const upgradeSchema = z.object({
+  priceId: z.string().min(1),
+});
+
+router.post("/api/subscription/upgrade", authenticate, async (req, res) => {
+  try {
+    const validation = upgradeSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: validation.error.flatten().fieldErrors,
+      });
+    }
+    const merchantId = req.user!.id;
+    const result = await upgradeSubscription(merchantId, validation.data.priceId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error(`Error upgrading subscription: ${sanitizeError(error)}`);
+    res.status(400).json({ message: error.message || "Failed to upgrade subscription" });
   }
 });
 

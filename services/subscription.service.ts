@@ -75,6 +75,24 @@ async function getAllowedDowngradePriceIds(): Promise<Set<string>> {
   return allowed;
 }
 
+async function getAllowedUpgradePriceIds(): Promise<Set<string>> {
+  const prices = await getStripePrices();
+  const allowedLookupKeys = [
+    PLAN_LOOKUP_KEYS.pro.monthly,
+    PLAN_LOOKUP_KEYS.pro.yearly,
+  ];
+
+  const allowed = new Set<string>();
+  for (const key of allowedLookupKeys) {
+    const price = prices.get(key);
+    if (price?.priceId) {
+      allowed.add(price.priceId);
+    }
+  }
+
+  return allowed;
+}
+
 /**
  * Create a free subscription for a merchant (permanently active, no trial)
  */
@@ -673,5 +691,51 @@ export async function downgradeSubscription(
 
   // Local DB update will happen via the customer.subscription.updated webhook
   logger.info(`Pro → Essentiel downgrade initiated for merchant ${merchantId}`);
+  return { success: true };
+}
+
+/**
+ * Upgrade an existing paid subscription (Essentiel → Pro) via Stripe.
+ * Switches the subscription's price item in Stripe.
+ */
+export async function upgradeSubscription(
+  merchantId: number,
+  priceId: string,
+): Promise<{ success: boolean }> {
+  const allowedUpgradePriceIds = await getAllowedUpgradePriceIds();
+  if (!allowedUpgradePriceIds.has(priceId)) {
+    throw new Error('Invalid upgrade price');
+  }
+
+  const stripeInstance = await getStripe();
+  const subscription = await getSubscription(merchantId);
+
+  if (!subscription) {
+    throw new Error('No subscription found');
+  }
+
+  if (subscription.planId !== 'essentiel') {
+    throw new Error('Only Essentiel subscriptions can be upgraded');
+  }
+
+  if (!stripeInstance || !subscription.stripeSubscriptionId) {
+    throw new Error('Cannot upgrade: no active Stripe subscription');
+  }
+
+  const stripeSub = await stripeInstance.subscriptions.retrieve(subscription.stripeSubscriptionId);
+  const currentItem = stripeSub.items.data[0];
+
+  if (!currentItem) {
+    throw new Error('No subscription item found');
+  }
+
+  await stripeInstance.subscriptions.update(subscription.stripeSubscriptionId, {
+    items: [{ id: currentItem.id, price: priceId }],
+    proration_behavior: 'create_prorations',
+    cancel_at_period_end: false,
+  });
+
+  // Local DB update will happen via the customer.subscription.updated webhook
+  logger.info(`Essentiel → Pro upgrade initiated for merchant ${merchantId}`);
   return { success: true };
 }
