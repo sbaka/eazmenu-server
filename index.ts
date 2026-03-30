@@ -36,6 +36,9 @@ app.use(helmet({
       frameSrc: ["'none'"],
     },
   },
+  frameguard: {
+    action: "sameorigin",
+  },
 }));
 
 // Compression middleware for better performance
