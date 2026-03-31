@@ -257,6 +257,7 @@ export async function getSubscriptionWithFeatures(merchantId: number) {
       currentPeriodStart: subscription.currentPeriodStart,
       currentPeriodEnd: subscription.currentPeriodEnd,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      scheduledPlanId: subscription.scheduledPlanId,
       createdAt: subscription.createdAt,
     },
     isActive: active,
@@ -395,6 +396,8 @@ export async function cancelSubscription(merchantId: number): Promise<{ cancelAt
 
   await db.update(subscriptions).set({
     cancelAtPeriodEnd: true,
+    scheduledPlanId: null,
+    scheduledPriceId: null,
     updatedAt: new Date(),
   }).where(eq(subscriptions.merchantId, merchantId));
 
@@ -481,12 +484,30 @@ export async function handleWebhookEvent(event: any): Promise<void> {
       const stripeSub = await stripeInstance.subscriptions.retrieve(stripeSubId);
 
       const period = getStripePeriodDates(stripeSub);
-      await db.update(subscriptions).set({
-        status: 'active',
+
+      // Check for a pending scheduled downgrade
+      const existingSub = await db.query.subscriptions.findFirst({
+        where: eq(subscriptions.stripeSubscriptionId, stripeSubId),
+        columns: { scheduledPlanId: true },
+      });
+
+      const updateData: any = {
+        status: 'active' as const,
         currentPeriodStart: period.start,
         currentPeriodEnd: period.end,
         updatedAt: new Date(),
-      }).where(eq(subscriptions.stripeSubscriptionId, stripeSubId));
+      };
+
+      // Apply scheduled downgrade on renewal
+      if (existingSub?.scheduledPlanId) {
+        updateData.planId = existingSub.scheduledPlanId;
+        updateData.scheduledPlanId = null;
+        updateData.scheduledPriceId = null;
+        logger.info(`Scheduled downgrade applied via invoice.paid: ${stripeSubId}, new plan: ${existingSub.scheduledPlanId}`);
+      }
+
+      await db.update(subscriptions).set(updateData)
+        .where(eq(subscriptions.stripeSubscriptionId, stripeSubId));
 
       logger.info(`Invoice paid for subscription ${stripeSubId}`);
       break;
@@ -513,8 +534,20 @@ export async function handleWebhookEvent(event: any): Promise<void> {
       const planId = resolvePlanFromLookupKey(priceItem?.lookup_key);
 
       const period = getStripePeriodDates(stripeSub);
+
+      // Use Stripe metadata (carried on the event itself — no DB read race)
+      // to detect if this update is from a scheduled downgrade.
+      const isScheduledDowngrade = !!stripeSub.metadata?.scheduled_downgrade_from;
+
+      const existingSub = await db.query.subscriptions.findFirst({
+        where: eq(subscriptions.stripeSubscriptionId, stripeSub.id),
+        columns: { currentPeriodStart: true },
+      });
+
+      const isRenewal = existingSub?.currentPeriodStart &&
+        period.start.getTime() !== existingSub.currentPeriodStart.getTime();
+
       const updateData: any = {
-        planId,
         stripePriceId,
         cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
         currentPeriodStart: period.start,
@@ -525,6 +558,24 @@ export async function handleWebhookEvent(event: any): Promise<void> {
       if (stripeSub.status === 'active') updateData.status = 'active';
       else if (stripeSub.status === 'past_due') updateData.status = 'past_due';
       else if (stripeSub.status === 'canceled') updateData.status = 'canceled';
+
+      // Scheduled downgrades: NEVER update planId here — invoice.paid handles it
+      // reliably on actual renewal. The Stripe price update fires this webhook
+      // mid-period with item-level period dates that can differ from the DB,
+      // causing isRenewal to be a false positive.
+      if (isScheduledDowngrade) {
+        if (isRenewal) {
+          // invoice.paid already applied the plan change; just clear schedule flags.
+          updateData.scheduledPlanId = null;
+          updateData.scheduledPriceId = null;
+          logger.info(`Scheduled downgrade cleared on renewal: ${stripeSub.id}`);
+        }
+      } else if (isRenewal) {
+        // Non-downgrade renewal — safe to update planId.
+        updateData.planId = planId;
+      }
+      // Mid-period (non-downgrade): NEVER touch planId here.
+      // Upgrades set planId directly in upgradeSubscription().
 
       await db.update(subscriptions).set(updateData)
         .where(eq(subscriptions.stripeSubscriptionId, stripeSub.id));
@@ -547,6 +598,8 @@ export async function handleWebhookEvent(event: any): Promise<void> {
         currentPeriodStart: null,
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
+        scheduledPlanId: null,
+        scheduledPriceId: null,
         updatedAt: new Date(),
       }).where(eq(subscriptions.stripeSubscriptionId, stripeSub.id));
 
@@ -659,12 +712,14 @@ export async function getCancelPreview(merchantId: number) {
 
 /**
  * Downgrade a Pro subscription to Essentiel via Stripe.
- * Switches the subscription's price item in Stripe.
+ * The Stripe price is updated immediately (so the next invoice uses the lower
+ * rate), but the user keeps Pro features until the current billing period ends.
+ * The actual planId switch happens in the webhook when the period renews.
  */
 export async function downgradeSubscription(
   merchantId: number,
   priceId: string,
-): Promise<{ success: boolean }> {
+): Promise<{ success: boolean; effectiveDate: Date | null }> {
   const allowedDowngradePriceIds = await getAllowedDowngradePriceIds();
   if (!allowedDowngradePriceIds.has(priceId)) {
     throw new Error('Invalid downgrade price');
@@ -685,7 +740,26 @@ export async function downgradeSubscription(
     throw new Error('Cannot downgrade: no active Stripe subscription');
   }
 
-  // Retrieve the Stripe subscription to get the current item ID
+  // Resolve the target plan from the price so we know what to schedule
+  const prices = await getStripePrices();
+  let targetPlanId: PlanId = 'essentiel';
+  for (const [lookupKey, info] of prices.entries()) {
+    if (info.priceId === priceId) {
+      targetPlanId = resolvePlanFromLookupKey(lookupKey);
+      break;
+    }
+  }
+
+  // 1. Record the scheduled downgrade in DB
+  await db.update(subscriptions).set({
+    scheduledPlanId: targetPlanId,
+    scheduledPriceId: priceId,
+    cancelAtPeriodEnd: false,
+    updatedAt: new Date(),
+  }).where(eq(subscriptions.merchantId, merchantId));
+
+  // 2. Update the Stripe subscription price (no proration — billed at next cycle)
+  //    Metadata tells the webhook handler to NOT overwrite planId in the DB.
   const stripeSub = await stripeInstance.subscriptions.retrieve(subscription.stripeSubscriptionId);
   const currentItem = stripeSub.items.data[0];
 
@@ -693,21 +767,21 @@ export async function downgradeSubscription(
     throw new Error('No subscription item found');
   }
 
-  // Update the subscription item to the new (lower) price — prorates by default
   await stripeInstance.subscriptions.update(subscription.stripeSubscriptionId, {
     items: [{ id: currentItem.id, price: priceId }],
-    proration_behavior: 'create_prorations',
+    proration_behavior: 'none',
     cancel_at_period_end: false,
+    metadata: { scheduled_downgrade_from: subscription.planId },
   });
 
-  // Local DB update will happen via the customer.subscription.updated webhook
-  logger.info(`Pro → Essentiel downgrade initiated for merchant ${merchantId}`);
-  return { success: true };
+  logger.info(`Pro → Essentiel downgrade scheduled for merchant ${merchantId}, effective at period end`);
+  return { success: true, effectiveDate: subscription.currentPeriodEnd };
 }
 
 /**
  * Upgrade an existing paid subscription (Essentiel → Pro) via Stripe.
  * Switches the subscription's price item in Stripe.
+ * Also clears any pending scheduled downgrade.
  */
 export async function upgradeSubscription(
   merchantId: number,
@@ -742,11 +816,74 @@ export async function upgradeSubscription(
 
   await stripeInstance.subscriptions.update(subscription.stripeSubscriptionId, {
     items: [{ id: currentItem.id, price: priceId }],
-    proration_behavior: 'create_prorations',
+    proration_behavior: 'none',
     cancel_at_period_end: false,
+    metadata: { scheduled_downgrade_from: '' },
   });
 
-  // Local DB update will happen via the customer.subscription.updated webhook
+  // Update planId directly — don't rely on the webhook (which skips mid-period planId changes)
+  await db.update(subscriptions).set({
+    planId: 'pro',
+    scheduledPlanId: null,
+    scheduledPriceId: null,
+    updatedAt: new Date(),
+  }).where(eq(subscriptions.merchantId, merchantId));
+
   logger.info(`Essentiel → Pro upgrade initiated for merchant ${merchantId}`);
+  return { success: true };
+}
+
+/**
+ * Cancel a scheduled downgrade, reverting the Stripe subscription back to the
+ * current plan's price.
+ */
+export async function cancelScheduledDowngrade(merchantId: number): Promise<{ success: boolean }> {
+  const subscription = await getSubscription(merchantId);
+
+  if (!subscription || !subscription.scheduledPlanId) {
+    throw new Error('No scheduled downgrade to cancel');
+  }
+
+  const stripeInstance = await getStripe();
+  if (!stripeInstance || !subscription.stripeSubscriptionId) {
+    throw new Error('Cannot cancel downgrade: no active Stripe subscription');
+  }
+
+  // Resolve the current plan's price to restore in Stripe
+  const currentPlanId = subscription.planId as PaidPlanId;
+  const interval = subscription.billingInterval ?? 'monthly';
+  const lookupKey = PLAN_LOOKUP_KEYS[currentPlanId]?.[interval];
+  if (!lookupKey) {
+    throw new Error('Cannot resolve current plan price');
+  }
+
+  const prices = await getStripePrices();
+  const currentPrice = prices.get(lookupKey);
+  if (!currentPrice?.priceId) {
+    throw new Error('Cannot resolve current plan price from Stripe');
+  }
+
+  // Revert Stripe subscription back to the current plan's price & clear metadata
+  const stripeSub = await stripeInstance.subscriptions.retrieve(subscription.stripeSubscriptionId);
+  const currentItem = stripeSub.items.data[0];
+
+  if (!currentItem) {
+    throw new Error('No subscription item found');
+  }
+
+  await stripeInstance.subscriptions.update(subscription.stripeSubscriptionId, {
+    items: [{ id: currentItem.id, price: currentPrice.priceId }],
+    proration_behavior: 'none',
+    metadata: { scheduled_downgrade_from: '' },
+  });
+
+  // Clear the scheduled downgrade in DB
+  await db.update(subscriptions).set({
+    scheduledPlanId: null,
+    scheduledPriceId: null,
+    updatedAt: new Date(),
+  }).where(eq(subscriptions.merchantId, merchantId));
+
+  logger.info(`Scheduled downgrade canceled for merchant ${merchantId}, staying on ${currentPlanId}`);
   return { success: true };
 }

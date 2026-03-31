@@ -11,6 +11,7 @@ import {
   getCancelPreview,
   downgradeSubscription,
   upgradeSubscription,
+  cancelScheduledDowngrade,
   sanitizeFeaturesForJson,
 } from "../services/subscription.service";
 import { PLAN_IDS, PLAN_FEATURES, PLAN_LOOKUP_KEYS } from "@sbaka/shared";
@@ -215,6 +216,18 @@ router.post("/api/subscription/resume", authenticate, async (req, res) => {
   } catch (error: any) {
     logger.error(`Error resuming subscription: ${sanitizeError(error)}`);
     res.status(400).json({ message: error.message || "Failed to resume subscription" });
+  }
+});
+
+// Cancel a scheduled downgrade (revert to keeping current plan)
+router.post("/api/subscription/cancel-downgrade", authenticate, async (req, res) => {
+  try {
+    const merchantId = req.user!.id;
+    const result = await cancelScheduledDowngrade(merchantId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error(`Error canceling scheduled downgrade: ${sanitizeError(error)}`);
+    res.status(400).json({ message: error.message || "Failed to cancel downgrade" });
   }
 });
 

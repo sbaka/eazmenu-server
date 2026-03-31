@@ -71,6 +71,13 @@
       "when": 1774361836874,
       "tag": "0009_long_nextwave",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774968187599,
+      "tag": "0010_woozy_korath",
+      "breakpoints": true
     }
   ]
 }

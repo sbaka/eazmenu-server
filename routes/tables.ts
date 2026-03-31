@@ -241,6 +241,7 @@ router.get("/api/tables/:id/qrcode", authenticate, async (req, res) => {
 
     const response: SingleTableWithQrCodeImage = {
       tableId: table.id,
+      tableNumber: table.number,
       imageUrl: menuUrl,
       qrCodeBase64: qrCodeDataUrl,
     };
