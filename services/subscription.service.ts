@@ -187,13 +187,24 @@ export async function getMerchantPlanFeatures(merchantId: number): Promise<PlanF
   return getPlanFeatures(subscription.planId) ?? PLAN_FEATURES.free;
 }
 
+/** Replace Infinity with -1 so JSON.stringify keeps the value */
+export function sanitizeFeaturesForJson(f: PlanFeatures): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(f)) {
+    out[k] = v === Infinity ? -1 : v;
+  }
+  return out;
+}
+
 /**
  * Get subscription with resolved plan features for API response
  */
 export async function getSubscriptionWithFeatures(merchantId: number) {
   const subscription = await getOrCreateSubscription(merchantId);
   const active = isSubscriptionActive(subscription);
-  const features = active ? (getPlanFeatures(subscription.planId) ?? PLAN_FEATURES.free) : null;
+  const rawFeatures = active ? (getPlanFeatures(subscription.planId) ?? PLAN_FEATURES.free) : null;
+  // Infinity is not valid JSON (serialises as null), so use -1 to mean "unlimited"
+  const features = rawFeatures ? sanitizeFeaturesForJson(rawFeatures) : null;
 
   // Gather current usage counts across all merchant restaurants
   const merchantRestaurants = await db.query.restaurants.findMany({

@@ -11,6 +11,7 @@ import {
   getCancelPreview,
   downgradeSubscription,
   upgradeSubscription,
+  sanitizeFeaturesForJson,
 } from "../services/subscription.service";
 import { PLAN_IDS, PLAN_FEATURES, PLAN_LOOKUP_KEYS } from "@sbaka/shared";
 import { getStripePrices } from "../services/stripe-price-cache.service";
@@ -39,7 +40,7 @@ router.get("/api/subscription/plans", async (_req, res) => {
     const plans = [
       {
         id: PLAN_IDS.FREE,
-        features: PLAN_FEATURES.free,
+        features: sanitizeFeaturesForJson(PLAN_FEATURES.free),
         pricing: {
           monthly: { amount: 0, priceId: null, currency: 'eur' },
           yearly: { amount: 0, priceId: null, currency: 'eur' },
@@ -47,7 +48,7 @@ router.get("/api/subscription/plans", async (_req, res) => {
       },
       {
         id: PLAN_IDS.ESSENTIEL,
-        features: PLAN_FEATURES.essentiel,
+        features: sanitizeFeaturesForJson(PLAN_FEATURES.essentiel),
         pricing: {
           monthly: toPricing(PLAN_LOOKUP_KEYS.essentiel.monthly),
           yearly: toPricing(PLAN_LOOKUP_KEYS.essentiel.yearly),
@@ -55,7 +56,7 @@ router.get("/api/subscription/plans", async (_req, res) => {
       },
       {
         id: PLAN_IDS.PRO,
-        features: PLAN_FEATURES.pro,
+        features: sanitizeFeaturesForJson(PLAN_FEATURES.pro),
         pricing: {
           monthly: toPricing(PLAN_LOOKUP_KEYS.pro.monthly),
           yearly: toPricing(PLAN_LOOKUP_KEYS.pro.yearly),
