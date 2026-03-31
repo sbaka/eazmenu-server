@@ -1,7 +1,7 @@
 # Server Project Configuration Guide
 
 ## Overview
-This is the backend server for the EazMenu application. It uses Express.js with TypeScript and connects to a PostgreSQL database using Drizzle ORM.
+This is the backend server for the Eazmenu application. It uses Express.js with TypeScript and connects to a PostgreSQL database using Drizzle ORM.
 
 ## Critical Configuration Rules
 

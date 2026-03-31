@@ -1,6 +1,6 @@
-# EazMenu Server
+# Eazmenu Server
 
-Backend server for the EazMenu restaurant ordering system.
+Backend server for the Eazmenu restaurant ordering system.
 
 ## Important Architecture Notes
 

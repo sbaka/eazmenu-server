@@ -1,4 +1,4 @@
-# EazMenu — Terms of Service
+# Eazmenu — Terms of Service
 
 **Last updated:** February 21, 2026
 
@@ -6,19 +6,19 @@
 
 ## 1. Acceptance of Terms
 
-By accessing or using the EazMenu platform ("Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you must not use the Service.
+By accessing or using the Eazmenu platform ("Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you must not use the Service.
 
 These Terms apply to:
 
 - **End Users (Clients):** individuals who scan a QR code to browse a restaurant's digital menu and optionally place orders.
-- **Admin Users (Merchants):** restaurant owners, managers, and authorized personnel who register on EazMenu to manage their establishments, menus, and orders.
-- **Website Visitors:** individuals who visit the EazMenu website.
+- **Admin Users (Merchants):** restaurant owners, managers, and authorized personnel who register on Eazmenu to manage their establishments, menus, and orders.
+- **Website Visitors:** individuals who visit the Eazmenu website.
 
 ---
 
 ## 2. Description of the Service
 
-EazMenu is a digital menu and ordering platform that provides:
+Eazmenu is a digital menu and ordering platform that provides:
 
 - **For Merchants:** A web-based dashboard to create and manage restaurant profiles, digital menus (including categories, items, pricing, images, allergens, nutritional information, and ingredients), multi-language translations, QR code generation for tables, real-time order management, menu performance analytics, theme and branding customization, and optional online payment acceptance via Stripe.
 - **For End Users:** A web-based interface accessible by scanning a QR code, allowing them to browse a restaurant's menu, view item details (including allergens and nutritional information), and place orders — all without creating an account or providing personal information.
@@ -109,7 +109,7 @@ Merchants retain all ownership rights to the content they upload or create on th
 
 ### 6.2 License Grant
 
-By uploading Merchant Content, you grant EazMenu a non-exclusive, worldwide, royalty-free license to host, store, display, reproduce, and distribute your Merchant Content solely for the purpose of operating and providing the Service. This includes displaying your menu to End Users, generating QR codes, and enabling order processing. This license terminates when you remove your content or delete your account.
+By uploading Merchant Content, you grant Eazmenu a non-exclusive, worldwide, royalty-free license to host, store, display, reproduce, and distribute your Merchant Content solely for the purpose of operating and providing the Service. This includes displaying your menu to End Users, generating QR codes, and enabling order processing. This license terminates when you remove your content or delete your account.
 
 ### 6.3 Content Responsibilities
 
@@ -120,7 +120,7 @@ Merchants are solely responsible for:
 - Compliance with all applicable food safety, labeling, and consumer protection laws in their jurisdiction.
 - Keeping their menus up to date to reflect actual availability, pricing, and ingredient changes.
 
-**EazMenu does not verify, endorse, or guarantee the accuracy of Merchant Content.** Allergen information, nutritional data, and other health-related declarations are provided by the Merchant and are their sole responsibility.
+**Eazmenu does not verify, endorse, or guarantee the accuracy of Merchant Content.** Allergen information, nutritional data, and other health-related declarations are provided by the Merchant and are their sole responsibility.
 
 ### 6.4 Content Restrictions
 
@@ -139,29 +139,29 @@ We reserve the right to remove any content that violates these Terms and to susp
 
 ### 7.1 Order Placement (End Users)
 
-When you place an order through EazMenu:
+When you place an order through Eazmenu:
 
 - Your order is transmitted to the restaurant in real time.
 - Prices displayed are set by the Merchant and validated server-side at the time of order.
 - An order, once submitted, is sent to the restaurant and may not be cancellable depending on the restaurant's workflow.
-- EazMenu facilitates the order but is **not a party** to the transaction between you and the restaurant.
+- Eazmenu facilitates the order but is **not a party** to the transaction between you and the restaurant.
 
 ### 7.2 Pricing
 
-All prices displayed on menus are set exclusively by the Merchant. EazMenu does not control, verify, or guarantee pricing accuracy. In the event of a pricing error, the Merchant is responsible for resolution with the End User.
+All prices displayed on menus are set exclusively by the Merchant. Eazmenu does not control, verify, or guarantee pricing accuracy. In the event of a pricing error, the Merchant is responsible for resolution with the End User.
 
 ### 7.3 Payment Processing
 
 Where a restaurant has enabled online payment:
 
 - Payments are processed entirely by **Stripe**, a PCI DSS-compliant third-party payment provider.
-- EazMenu **never** receives, processes, or stores credit card numbers or payment card details.
+- Eazmenu **never** receives, processes, or stores credit card numbers or payment card details.
 - By making a payment, you agree to Stripe's [Terms of Service](https://stripe.com/legal) and [Privacy Policy](https://stripe.com/privacy).
-- EazMenu is not responsible for payment processing errors, declined transactions, or refunds. Payment disputes should be directed to the restaurant and/or Stripe.
+- Eazmenu is not responsible for payment processing errors, declined transactions, or refunds. Payment disputes should be directed to the restaurant and/or Stripe.
 
 ### 7.4 Relationship Between Parties
 
-EazMenu acts as a technology platform connecting Merchants and End Users. **EazMenu is not a restaurant, food provider, or payment processor.** The contract for the sale of food and beverages is between the Merchant and the End User. EazMenu bears no responsibility for:
+Eazmenu acts as a technology platform connecting Merchants and End Users. **Eazmenu is not a restaurant, food provider, or payment processor.** The contract for the sale of food and beverages is between the Merchant and the End User. Eazmenu bears no responsibility for:
 
 - The quality, safety, or legality of food or beverages served.
 - The fulfillment, accuracy, or timeliness of orders.
@@ -173,13 +173,13 @@ EazMenu acts as a technology platform connecting Merchants and End Users. **EazM
 
 ### 8.1 QR Code Generation
 
-EazMenu generates unique QR codes for each table configured by the Merchant. QR codes are linked to a specific restaurant and table.
+Eazmenu generates unique QR codes for each table configured by the Merchant. QR codes are linked to a specific restaurant and table.
 
 ### 8.2 QR Code Usage
 
 - QR codes are intended solely for directing customers to the associated restaurant's digital menu.
 - Merchants are responsible for the physical placement, printing, and maintenance of QR codes at their establishment.
-- EazMenu is not responsible for QR codes that are damaged, tampered with, or misused by third parties.
+- Eazmenu is not responsible for QR codes that are damaged, tampered with, or misused by third parties.
 - Merchants must not use QR codes to redirect users to third-party content or services unrelated to their restaurant's menu.
 
 ---
@@ -196,7 +196,7 @@ Automated translations are provided using third-party translation services (curr
 
 - **Automated translations are provided "as is"** and may contain errors, inaccuracies, or awkward phrasing.
 - Merchants are responsible for reviewing and correcting automated translations before publishing them.
-- EazMenu is not liable for errors in automated translations, including mistranslation of allergen or nutritional information.
+- Eazmenu is not liable for errors in automated translations, including mistranslation of allergen or nutritional information.
 
 ---
 
@@ -204,7 +204,7 @@ Automated translations are provided using third-party translation services (curr
 
 ### 10.1 Menu Analytics
 
-EazMenu provides aggregated analytics to Merchants regarding menu item performance (views, clicks, add-to-cart events). These analytics are based on anonymous session data and cannot be used to identify individual End Users.
+Eazmenu provides aggregated analytics to Merchants regarding menu item performance (views, clicks, add-to-cart events). These analytics are based on anonymous session data and cannot be used to identify individual End Users.
 
 ### 10.2 Data Ownership
 
@@ -214,13 +214,13 @@ Analytics data derived from End User interactions with a Merchant's menu is made
 
 ## 11. Intellectual Property
 
-### 11.1 EazMenu IP
+### 11.1 Eazmenu IP
 
-The Service, including its software, design, branding, logos, documentation, and all underlying technology, is the proprietary property of EazMenu and is protected by applicable intellectual property laws. These Terms do not grant you any right, title, or interest in the Service beyond the limited right to use it as described herein.
+The Service, including its software, design, branding, logos, documentation, and all underlying technology, is the proprietary property of Eazmenu and is protected by applicable intellectual property laws. These Terms do not grant you any right, title, or interest in the Service beyond the limited right to use it as described herein.
 
 ### 11.2 Feedback
 
-If you provide suggestions, ideas, or feedback about the Service, you grant EazMenu an unrestricted, irrevocable, royalty-free license to use, modify, and implement such feedback without obligation to you.
+If you provide suggestions, ideas, or feedback about the Service, you grant Eazmenu an unrestricted, irrevocable, royalty-free license to use, modify, and implement such feedback without obligation to you.
 
 ---
 
@@ -246,7 +246,7 @@ The Service integrates with third-party providers to deliver its functionality. 
 | **DeepL** | Automated translations | [deepl.com/pro-license](https://www.deepl.com/pro-license) |
 | **Google reCAPTCHA** | Bot protection | [google.com/intl/en/policies/terms](https://policies.google.com/terms) |
 
-EazMenu is not responsible for the availability, accuracy, or conduct of third-party services.
+Eazmenu is not responsible for the availability, accuracy, or conduct of third-party services.
 
 ---
 
@@ -262,7 +262,7 @@ We do not guarantee that the Service will be uninterrupted, error-free, secure, 
 
 ### 14.3 Food Safety Disclaimer
 
-EazMenu is a technology platform and does **not** prepare, handle, inspect, or deliver food. We make no representations or warranties regarding:
+Eazmenu is a technology platform and does **not** prepare, handle, inspect, or deliver food. We make no representations or warranties regarding:
 
 - The safety, quality, or legality of food or beverages offered by Merchants.
 - The accuracy of allergen declarations, nutritional information, or ingredient lists provided by Merchants.
@@ -276,15 +276,15 @@ EazMenu is a technology platform and does **not** prepare, handle, inspect, or d
 
 TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW:
 
-- EazMenu, its directors, employees, partners, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, business opportunities, or goodwill, arising out of or in connection with your use of the Service.
-- EazMenu's total aggregate liability for any claims arising from or relating to these Terms or the Service shall not exceed the amount you have paid to EazMenu (if any) in the twelve (12) months preceding the claim.
-- EazMenu is not liable for any loss, injury, or damage resulting from food or beverages ordered through the Service, payment processing issues, or actions or omissions of Merchants or third-party service providers.
+- Eazmenu, its directors, employees, partners, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, business opportunities, or goodwill, arising out of or in connection with your use of the Service.
+- Eazmenu's total aggregate liability for any claims arising from or relating to these Terms or the Service shall not exceed the amount you have paid to Eazmenu (if any) in the twelve (12) months preceding the claim.
+- Eazmenu is not liable for any loss, injury, or damage resulting from food or beverages ordered through the Service, payment processing issues, or actions or omissions of Merchants or third-party service providers.
 
 ---
 
 ## 16. Indemnification
 
-You agree to indemnify, defend, and hold harmless EazMenu and its officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, costs, or expenses (including reasonable attorney's fees) arising out of or related to:
+You agree to indemnify, defend, and hold harmless Eazmenu and its officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, costs, or expenses (including reasonable attorney's fees) arising out of or related to:
 
 - Your use of the Service.
 - Your violation of these Terms.
@@ -297,7 +297,7 @@ You agree to indemnify, defend, and hold harmless EazMenu and its officers, dire
 
 ## 17. Suspension & Termination
 
-### 17.1 By EazMenu
+### 17.1 By Eazmenu
 
 We may suspend or terminate your access to the Service at any time, with or without notice, if:
 
@@ -365,7 +365,7 @@ If any provision of these Terms is found to be unenforceable or invalid, that pr
 
 ## 22. Entire Agreement
 
-These Terms, together with the Privacy Policy, constitute the entire agreement between you and EazMenu regarding your use of the Service and supersede all prior agreements, understandings, or representations.
+These Terms, together with the Privacy Policy, constitute the entire agreement between you and Eazmenu regarding your use of the Service and supersede all prior agreements, understandings, or representations.
 
 ---
 

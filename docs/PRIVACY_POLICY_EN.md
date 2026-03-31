@@ -1,4 +1,4 @@
-# EazMenu — Privacy & Confidentiality Policy
+# Eazmenu — Privacy & Confidentiality Policy
 
 **Last updated:** February 21, 2026
 
@@ -6,21 +6,21 @@
 
 ## 1. Introduction
 
-EazMenu ("we", "us", "our") is a digital menu and ordering platform that enables restaurant owners and merchants ("Admin Users") to create, manage, and publish their menus online, and allows their customers ("End Users") to browse menus and place orders by scanning QR codes.
+Eazmenu ("we", "us", "our") is a digital menu and ordering platform that enables restaurant owners and merchants ("Admin Users") to create, manage, and publish their menus online, and allows their customers ("End Users") to browse menus and place orders by scanning QR codes.
 
 This Privacy & Confidentiality Policy describes what personal data we collect, why we collect it, how we process and protect it, and what rights you have regarding your data. It applies to:
 
 - **End Users (Clients):** individuals who scan a QR code to view a restaurant menu and optionally place orders.
-- **Admin Users (Merchants):** restaurant owners and managers who register on EazMenu to manage their establishments, menus, and orders.
-- **Website Visitors:** individuals who visit the EazMenu landing page and may use the contact form.
+- **Admin Users (Merchants):** restaurant owners and managers who register on Eazmenu to manage their establishments, menus, and orders.
+- **Website Visitors:** individuals who visit the Eazmenu landing page and may use the contact form.
 
 ---
 
 ## 2. Data Controller
 
-The data controller for the personal data processed through EazMenu is:
+The data controller for the personal data processed through Eazmenu is:
 
-**EazMenu**
+**Eazmenu**
 Contact: [Insert contact email address]
 
 For any questions regarding this policy or to exercise your rights, please contact us at the address above.
@@ -29,7 +29,7 @@ For any questions regarding this policy or to exercise your rights, please conta
 
 ## 3. Data Collected from End Users (Clients)
 
-End Users do **not** need to create an account or provide any personal information to use EazMenu. Browsing a menu and placing an order is fully anonymous.
+End Users do **not** need to create an account or provide any personal information to use Eazmenu. Browsing a menu and placing an order is fully anonymous.
 
 ### 3.1 Session Identifier
 
@@ -67,7 +67,7 @@ These events are associated only with the anonymous session ID and cannot be tra
 
 ### 3.4 Payment Data
 
-When a restaurant has enabled online payments, payment processing is handled entirely by **Stripe**, a PCI DSS-compliant third-party payment provider. EazMenu **never** receives, processes, or stores credit card numbers, CVVs, or any other payment card details. Only the payment status and amount are recorded in our system to update the order. Please refer to [Stripe's Privacy Policy](https://stripe.com/privacy) for details on how Stripe handles your payment data.
+When a restaurant has enabled online payments, payment processing is handled entirely by **Stripe**, a PCI DSS-compliant third-party payment provider. Eazmenu **never** receives, processes, or stores credit card numbers, CVVs, or any other payment card details. Only the payment status and amount are recorded in our system to update the order. Please refer to [Stripe's Privacy Policy](https://stripe.com/privacy) for details on how Stripe handles your payment data.
 
 ### 3.5 Data Retention — End Users
 
@@ -83,7 +83,7 @@ When a restaurant has enabled online payments, payment processing is handled ent
 
 ### 4.1 Account Information
 
-When a merchant registers on EazMenu, the following information is collected:
+When a merchant registers on Eazmenu, the following information is collected:
 
 | Data | Purpose |
 |---|---|
@@ -158,8 +158,8 @@ When a visitor submits the contact form on our landing page, the following data 
 This data is:
 
 - **Sent via email** to our team for processing.
-- **Optionally synced to Klaviyo** (email marketing platform) if the visitor consents, for the purpose of communications about EazMenu services.
-- **Not stored in any database** by EazMenu directly.
+- **Optionally synced to Klaviyo** (email marketing platform) if the visitor consents, for the purpose of communications about Eazmenu services.
+- **Not stored in any database** by Eazmenu directly.
 
 ### 5.2 Google reCAPTCHA v3
 
@@ -268,7 +268,7 @@ Our services may involve data processing across different jurisdictions. Where a
 
 ## 12. Children's Privacy
 
-EazMenu is not directed at individuals under the age of 16. We do not knowingly collect personal data from children. Since End Users are not required to provide any personal information, the risk of inadvertent collection of children's data is minimal.
+Eazmenu is not directed at individuals under the age of 16. We do not knowingly collect personal data from children. Since End Users are not required to provide any personal information, the risk of inadvertent collection of children's data is minimal.
 
 ---
 
