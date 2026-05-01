@@ -48,6 +48,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/menu', rateLimits.customer);
   app.use('/api/customer/menu', rateLimits.customer);
   app.use('/api/customer/menu-data', rateLimits.customer);
+  app.use('/api/customer/menu-by-restaurant', rateLimits.customer);
+  app.use('/api/customer/table-session/refresh', rateLimits.orders);
   app.use('/api/customer/restaurants', rateLimits.customer);
   app.use('/api/restaurants/:restaurantId/translations', rateLimits.customer);
 

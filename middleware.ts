@@ -20,6 +20,9 @@ export const customerOnlyRoutes = (req: any, res: any, next: any) => {
     // Customer menu via QR code: /customer/menu and /customer/menu-data
     req.path === '/customer/menu' ||
     req.path === '/customer/menu-data' ||
+    req.path === '/customer/menu-by-restaurant' ||
+    req.path === '/customer/table-session/refresh' ||
+    req.path === '/customer/restaurants' ||
     // Restaurant languages: /restaurants/:restaurantId/languages
     req.path.match(/^\/restaurants\/\d+\/languages$/) ||
     // Restaurant translations: /restaurants/:restaurantId/translations
