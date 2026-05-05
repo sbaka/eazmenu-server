@@ -10,6 +10,8 @@ import {
   handleWebhookEvent,
   getCancelPreview,
   downgradeSubscription,
+  upgradeSubscription,
+  changeBillingInterval,
 } from "../services/subscription.service";
 import { PLAN_IDS, PLAN_FEATURES, PLAN_LOOKUP_KEYS } from "@sbaka/shared";
 import { getStripePrices } from "../services/stripe-price-cache.service";
@@ -161,6 +163,47 @@ router.get("/api/subscription/cancel-preview", authenticate, async (req, res) =>
 // Downgrade subscription (Pro → Essentiel)
 const downgradeSchema = z.object({
   priceId: z.string().min(1),
+});
+
+const changeBillingIntervalSchema = z.object({
+  priceId: z.string().min(1),
+  confirmed: z.literal(true),
+});
+
+router.post("/api/subscription/upgrade", authenticate, async (req, res) => {
+  try {
+    const validation = downgradeSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: validation.error.flatten().fieldErrors,
+      });
+    }
+    const merchantId = req.user!.id;
+    const result = await upgradeSubscription(merchantId, validation.data.priceId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error(`Error upgrading subscription: ${sanitizeError(error)}`);
+    res.status(400).json({ message: error.message || "Failed to upgrade subscription" });
+  }
+});
+
+router.post("/api/subscription/change-interval", authenticate, async (req, res) => {
+  try {
+    const validation = changeBillingIntervalSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: validation.error.flatten().fieldErrors,
+      });
+    }
+    const merchantId = req.user!.id;
+    const result = await changeBillingInterval(merchantId, validation.data.priceId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error(`Error changing billing interval: ${sanitizeError(error)}`);
+    res.status(400).json({ message: error.message || "Failed to change billing interval" });
+  }
 });
 
 router.post("/api/subscription/downgrade", authenticate, async (req, res) => {
