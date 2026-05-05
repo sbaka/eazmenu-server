@@ -219,8 +219,8 @@ router.put("/api/restaurants/:id", authenticate, rateLimits.api, async (req, res
       }
     }
 
-    // Enforce chef message access
-    if (updateData.chefMessage !== undefined) {
+    // Enforce chef message access (only when actually setting a non-empty message)
+    if (updateData.chefMessage) {
       const canUseChefMessage = await checkFeatureAccess(req.user!.id, 'chefMessage');
       if (!canUseChefMessage) {
         return res.status(403).json({

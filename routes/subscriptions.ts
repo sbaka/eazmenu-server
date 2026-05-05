@@ -13,6 +13,8 @@ import {
   upgradeSubscription,
   changeBillingInterval,
   type CheckoutRedirectContext,
+  cancelScheduledDowngrade,
+  sanitizeFeaturesForJson,
 } from "../services/subscription.service";
 import { PLAN_IDS, PLAN_FEATURES, PLAN_LOOKUP_KEYS } from "@sbaka/shared";
 import { getStripePrices } from "../services/stripe-price-cache.service";
@@ -20,7 +22,7 @@ import logger, { sanitizeError } from "../logger";
 
 const router = Router();
 
-const stripeWebhookSecret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET;
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 // Get available plans with pricing (public - no auth required)
 // Amounts, currency and trial settings come live from Stripe (TTL-cached).
@@ -41,7 +43,7 @@ router.get("/api/subscription/plans", async (_req, res) => {
     const plans = [
       {
         id: PLAN_IDS.FREE,
-        features: PLAN_FEATURES.free,
+        features: sanitizeFeaturesForJson(PLAN_FEATURES.free),
         pricing: {
           monthly: { amount: 0, priceId: null, currency: 'eur' },
           yearly: { amount: 0, priceId: null, currency: 'eur' },
@@ -49,7 +51,7 @@ router.get("/api/subscription/plans", async (_req, res) => {
       },
       {
         id: PLAN_IDS.ESSENTIEL,
-        features: PLAN_FEATURES.essentiel,
+        features: sanitizeFeaturesForJson(PLAN_FEATURES.essentiel),
         pricing: {
           monthly: toPricing(PLAN_LOOKUP_KEYS.essentiel.monthly),
           yearly: toPricing(PLAN_LOOKUP_KEYS.essentiel.yearly),
@@ -57,7 +59,7 @@ router.get("/api/subscription/plans", async (_req, res) => {
       },
       {
         id: PLAN_IDS.PRO,
-        features: PLAN_FEATURES.pro,
+        features: sanitizeFeaturesForJson(PLAN_FEATURES.pro),
         pricing: {
           monthly: toPricing(PLAN_LOOKUP_KEYS.pro.monthly),
           yearly: toPricing(PLAN_LOOKUP_KEYS.pro.yearly),
@@ -226,6 +228,29 @@ router.post("/api/subscription/downgrade", authenticate, async (req, res) => {
   }
 });
 
+// Upgrade subscription (Essentiel → Pro)
+const upgradeSchema = z.object({
+  priceId: z.string().min(1),
+});
+
+router.post("/api/subscription/upgrade", authenticate, async (req, res) => {
+  try {
+    const validation = upgradeSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: validation.error.flatten().fieldErrors,
+      });
+    }
+    const merchantId = req.user!.id;
+    const result = await upgradeSubscription(merchantId, validation.data.priceId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error(`Error upgrading subscription: ${sanitizeError(error)}`);
+    res.status(400).json({ message: error.message || "Failed to upgrade subscription" });
+  }
+});
+
 // Resume a subscription scheduled for cancellation
 router.post("/api/subscription/resume", authenticate, async (req, res) => {
   try {
@@ -235,6 +260,18 @@ router.post("/api/subscription/resume", authenticate, async (req, res) => {
   } catch (error: any) {
     logger.error(`Error resuming subscription: ${sanitizeError(error)}`);
     res.status(400).json({ message: error.message || "Failed to resume subscription" });
+  }
+});
+
+// Cancel a scheduled downgrade (revert to keeping current plan)
+router.post("/api/subscription/cancel-downgrade", authenticate, async (req, res) => {
+  try {
+    const merchantId = req.user!.id;
+    const result = await cancelScheduledDowngrade(merchantId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error(`Error canceling scheduled downgrade: ${sanitizeError(error)}`);
+    res.status(400).json({ message: error.message || "Failed to cancel downgrade" });
   }
 });
 

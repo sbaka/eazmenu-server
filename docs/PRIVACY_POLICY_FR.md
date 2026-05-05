@@ -1,4 +1,4 @@
-# EazMenu — Politique de Confidentialité et de Protection des Données
+# Eazmenu — Politique de Confidentialité et de Protection des Données
 
 **Dernière mise à jour :** 21 février 2026
 
@@ -6,21 +6,21 @@
 
 ## 1. Introduction
 
-EazMenu (« nous », « notre », « nos ») est une plateforme numérique de menus et de commandes qui permet aux restaurateurs et commerçants (« Utilisateurs Administrateurs ») de créer, gérer et publier leurs menus en ligne, et à leurs clients (« Utilisateurs Finaux ») de consulter les menus et passer des commandes en scannant des codes QR.
+Eazmenu (« nous », « notre », « nos ») est une plateforme numérique de menus et de commandes qui permet aux restaurateurs et commerçants (« Utilisateurs Administrateurs ») de créer, gérer et publier leurs menus en ligne, et à leurs clients (« Utilisateurs Finaux ») de consulter les menus et passer des commandes en scannant des codes QR.
 
 La présente Politique de Confidentialité et de Protection des Données décrit les données personnelles que nous collectons, pourquoi nous les collectons, comment nous les traitons et les protégeons, ainsi que les droits dont vous disposez concernant vos données. Elle s'applique aux :
 
 - **Utilisateurs Finaux (Clients) :** personnes qui scannent un code QR pour consulter le menu d'un restaurant et éventuellement passer des commandes.
-- **Utilisateurs Administrateurs (Commerçants) :** propriétaires et gestionnaires de restaurants qui s'inscrivent sur EazMenu pour gérer leurs établissements, menus et commandes.
-- **Visiteurs du site web :** personnes qui visitent la page d'accueil d'EazMenu et peuvent utiliser le formulaire de contact.
+- **Utilisateurs Administrateurs (Commerçants) :** propriétaires et gestionnaires de restaurants qui s'inscrivent sur Eazmenu pour gérer leurs établissements, menus et commandes.
+- **Visiteurs du site web :** personnes qui visitent la page d'accueil d'Eazmenu et peuvent utiliser le formulaire de contact.
 
 ---
 
 ## 2. Responsable du traitement
 
-Le responsable du traitement des données personnelles traitées via EazMenu est :
+Le responsable du traitement des données personnelles traitées via Eazmenu est :
 
-**EazMenu**
+**Eazmenu**
 Contact : contact@eazmenu.com
 
 Pour toute question relative à cette politique ou pour exercer vos droits, veuillez nous contacter à l'adresse ci-dessus.
@@ -29,7 +29,7 @@ Pour toute question relative à cette politique ou pour exercer vos droits, veui
 
 ## 3. Données collectées auprès des Utilisateurs Finaux (Clients)
 
-Les Utilisateurs Finaux n'ont **pas** besoin de créer un compte ni de fournir d'informations personnelles pour utiliser EazMenu. La consultation d'un menu et le passage d'une commande sont entièrement anonymes.
+Les Utilisateurs Finaux n'ont **pas** besoin de créer un compte ni de fournir d'informations personnelles pour utiliser Eazmenu. La consultation d'un menu et le passage d'une commande sont entièrement anonymes.
 
 ### 3.1 Identifiant de session
 
@@ -67,7 +67,7 @@ Ces événements sont associés uniquement à l'identifiant de session anonyme e
 
 ### 3.4 Données de paiement
 
-Lorsqu'un restaurant a activé le paiement en ligne, le traitement des paiements est entièrement assuré par **Stripe**, un prestataire de paiement tiers conforme à la norme PCI DSS. EazMenu ne reçoit, ne traite et ne stocke **jamais** les numéros de carte bancaire, les cryptogrammes visuels (CVV) ou toute autre donnée de carte de paiement. Seuls le statut du paiement et le montant sont enregistrés dans notre système pour mettre à jour la commande. Veuillez consulter la [Politique de Confidentialité de Stripe](https://stripe.com/fr/privacy) pour plus de détails sur la manière dont Stripe traite vos données de paiement.
+Lorsqu'un restaurant a activé le paiement en ligne, le traitement des paiements est entièrement assuré par **Stripe**, un prestataire de paiement tiers conforme à la norme PCI DSS. Eazmenu ne reçoit, ne traite et ne stocke **jamais** les numéros de carte bancaire, les cryptogrammes visuels (CVV) ou toute autre donnée de carte de paiement. Seuls le statut du paiement et le montant sont enregistrés dans notre système pour mettre à jour la commande. Veuillez consulter la [Politique de Confidentialité de Stripe](https://stripe.com/fr/privacy) pour plus de détails sur la manière dont Stripe traite vos données de paiement.
 
 ### 3.5 Conservation des données — Utilisateurs Finaux
 
@@ -83,7 +83,7 @@ Lorsqu'un restaurant a activé le paiement en ligne, le traitement des paiements
 
 ### 4.1 Informations de compte
 
-Lors de l'inscription d'un commerçant sur EazMenu, les informations suivantes sont collectées :
+Lors de l'inscription d'un commerçant sur Eazmenu, les informations suivantes sont collectées :
 
 | Donnée | Finalité |
 |---|---|
@@ -158,8 +158,8 @@ Lorsqu'un visiteur remplit le formulaire de contact sur notre page d'accueil, le
 Ces données sont :
 
 - **Envoyées par e-mail** à notre équipe pour traitement.
-- **Éventuellement synchronisées avec Klaviyo** (plateforme de marketing par e-mail) si le visiteur y consent, aux fins de communications relatives aux services d'EazMenu.
-- **Non stockées dans une base de données** par EazMenu directement.
+- **Éventuellement synchronisées avec Klaviyo** (plateforme de marketing par e-mail) si le visiteur y consent, aux fins de communications relatives aux services d'Eazmenu.
+- **Non stockées dans une base de données** par Eazmenu directement.
 
 ### 5.2 Google reCAPTCHA v3
 
@@ -268,7 +268,7 @@ Nos services peuvent impliquer le traitement de données dans différentes jurid
 
 ## 12. Protection des données des mineurs
 
-EazMenu ne s'adresse pas aux personnes de moins de 16 ans. Nous ne collectons pas sciemment de données personnelles auprès d'enfants. Étant donné que les Utilisateurs Finaux ne sont pas tenus de fournir des informations personnelles, le risque de collecte involontaire de données de mineurs est minimal.
+Eazmenu ne s'adresse pas aux personnes de moins de 16 ans. Nous ne collectons pas sciemment de données personnelles auprès d'enfants. Étant donné que les Utilisateurs Finaux ne sont pas tenus de fournir des informations personnelles, le risque de collecte involontaire de données de mineurs est minimal.
 
 ---
 

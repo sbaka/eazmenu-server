@@ -1,6 +1,6 @@
 # Deploying to Render.com
 
-This guide covers deploying the EazMenu server to Render.com using Docker.
+This guide covers deploying the Eazmenu server to Render.com using Docker.
 
 ## Prerequisites
 
