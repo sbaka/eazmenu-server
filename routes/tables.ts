@@ -20,6 +20,10 @@ import {
   type QrTableEntry,
 } from "../services/qr-export-service";
 
+type SingleTableWithQrCodeImageWithNumber = SingleTableWithQrCodeImage & {
+  tableNumber: number;
+};
+
 const router = Router();
 
 // Get tables by restaurant
@@ -239,7 +243,7 @@ router.get("/api/tables/:id/qrcode", authenticate, async (req, res) => {
     const menuUrl = `${protocol}://${apiHost}/api/customer/menu?qrCode=${table.qrCode}`;
     const qrCodeDataUrl = await QRCode.toDataURL(menuUrl);
 
-    const response: SingleTableWithQrCodeImage = {
+    const response: SingleTableWithQrCodeImageWithNumber = {
       tableId: table.id,
       tableNumber: table.number,
       imageUrl: menuUrl,

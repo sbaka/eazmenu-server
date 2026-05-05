@@ -3,23 +3,19 @@ import * as https from "https";
 import logger, { sanitizeError } from "../../logger";
 import {
   TranslationAdapter,
-  TranslationRequest,
-  TranslationResponse,
   TranslationAdapterConfig,
   TranslationError,
+  TranslationRequest,
+  TranslationResponse,
 } from "./translation-adapter.interface";
 
+const REQUEST_INTERVAL_MS = 250;
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
-const REQUEST_INTERVAL_MS = 200; // minimum ms between API calls
 
-/**
- * DeepL translation adapter implementation
- * Includes rate-limiting queue and retry with exponential backoff for 429 errors.
- */
 export class DeepLAdapter implements TranslationAdapter {
-  private httpsAgent: https.Agent;
-  private cache: Map<string, TranslationResponse> = new Map();
+  private readonly httpsAgent: https.Agent;
+  private readonly cache = new Map<string, TranslationResponse>();
 
   // Simple serial queue: each API call waits for the previous one + a minimum interval
   private lastRequestTime = 0;
@@ -252,22 +248,6 @@ export class DeepLAdapter implements TranslationAdapter {
   }
 
   // --------------- helpers ---------------
-
-  private parseApiResponse(data: any): TranslationResponse {
-    if (!data.translations || !Array.isArray(data.translations) || data.translations.length === 0) {
-      throw new TranslationError(
-        'Invalid response format from DeepL API',
-        'INVALID_RESPONSE',
-        data
-      );
-    }
-
-    const translation = data.translations[0];
-    return {
-      translatedText: translation.text,
-      detectedSourceLanguage: translation.detected_source_language,
-    };
-  }
 
   private getApiUrl(): string {
     return this.config.endpoint || 'https://api-free.deepl.com/v2/translate';

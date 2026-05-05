@@ -35,6 +35,8 @@ declare global {
     interface Request {
       user?: User;
       supabaseUser?: SupabaseUser;
+      sessionID?: string;
+      isAuthenticated?: () => boolean;
     }
   }
 }
