@@ -10,6 +10,40 @@ import logger from "../logger";
 let stripe: any = null;
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
+export type CheckoutRedirectContext = 'billing' | 'dashboard';
+
+const CHECKOUT_REDIRECT_PATHS: Record<CheckoutRedirectContext, { successPath: string; cancelPath: string }> = {
+  billing: {
+    successPath: '/settings?tab=billing&checkout=success',
+    cancelPath: '/settings?tab=billing&checkout=cancelled',
+  },
+  dashboard: {
+    successPath: '/dashboard?checkout=success',
+    cancelPath: '/dashboard?checkout=cancelled',
+  },
+};
+
+function getAdminAppBaseUrl(): URL {
+  return new URL(process.env.ADMIN_URL ?? 'http://localhost:3000');
+}
+
+function buildTrustedAdminUrl(path: string): string {
+  return new URL(path, getAdminAppBaseUrl()).toString();
+}
+
+function getCheckoutRedirectUrls(context: CheckoutRedirectContext): { successUrl: string; cancelUrl: string } {
+  const paths = CHECKOUT_REDIRECT_PATHS[context];
+
+  return {
+    successUrl: buildTrustedAdminUrl(paths.successPath),
+    cancelUrl: buildTrustedAdminUrl(paths.cancelPath),
+  };
+}
+
+function getBillingPortalReturnUrl(): string {
+  return buildTrustedAdminUrl('/settings?tab=billing');
+}
+
 /** Safely parse a Stripe timestamp (Unix seconds or ISO string) into a Date */
 function parseStripeTimestamp(value: unknown): Date {
   if (typeof value === 'number') return new Date(value * 1000);
@@ -286,8 +320,7 @@ export async function getSubscriptionWithFeatures(merchantId: number) {
 export async function createCheckoutSession(
   merchantId: number,
   priceId: string,
-  successUrl: string,
-  cancelUrl: string,
+  redirectContext: CheckoutRedirectContext,
 ): Promise<{ url: string } | null> {
   const allowedPriceIds = await getAllowedPaidPriceIds();
   if (!allowedPriceIds.has(priceId)) {
@@ -301,6 +334,15 @@ export async function createCheckoutSession(
   }
 
   const subscription = await getOrCreateSubscription(merchantId);
+  if (subscription.planId !== 'free') {
+    throw new Error('Checkout is only available for free subscriptions');
+  }
+
+  if (subscription.stripeSubscriptionId) {
+    throw new Error('A Stripe subscription is already attached to this account');
+  }
+
+  const { successUrl, cancelUrl } = getCheckoutRedirectUrls(redirectContext);
 
   // Get or create Stripe customer
   let stripeCustomerId = subscription.stripeCustomerId;
@@ -343,7 +385,7 @@ export async function createCheckoutSession(
 /**
  * Create a Stripe billing portal session
  */
-export async function createBillingPortalSession(merchantId: number, returnUrl: string): Promise<{ url: string } | null> {
+export async function createBillingPortalSession(merchantId: number): Promise<{ url: string } | null> {
   const stripeInstance = await getStripe();
   if (!stripeInstance) return null;
 
@@ -352,7 +394,7 @@ export async function createBillingPortalSession(merchantId: number, returnUrl: 
 
   const session = await stripeInstance.billingPortal.sessions.create({
     customer: subscription.stripeCustomerId,
-    return_url: returnUrl,
+    return_url: getBillingPortalReturnUrl(),
   });
 
   return { url: session.url };

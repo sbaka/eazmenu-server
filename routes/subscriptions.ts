@@ -12,6 +12,7 @@ import {
   downgradeSubscription,
   upgradeSubscription,
   changeBillingInterval,
+  type CheckoutRedirectContext,
 } from "../services/subscription.service";
 import { PLAN_IDS, PLAN_FEATURES, PLAN_LOOKUP_KEYS } from "@sbaka/shared";
 import { getStripePrices } from "../services/stripe-price-cache.service";
@@ -87,8 +88,7 @@ router.get("/api/subscription", authenticate, async (req, res) => {
 // Create Stripe checkout session
 const checkoutSchema = z.object({
   priceId: z.string().min(1),
-  successUrl: z.string().url(),
-  cancelUrl: z.string().url(),
+  redirectContext: z.enum(['billing', 'dashboard']).optional(),
 });
 
 router.post("/api/subscription/checkout", authenticate, async (req, res) => {
@@ -101,10 +101,14 @@ router.post("/api/subscription/checkout", authenticate, async (req, res) => {
       });
     }
 
-    const { priceId, successUrl, cancelUrl } = validation.data;
+    const { priceId, redirectContext } = validation.data;
     const merchantId = req.user!.id;
 
-    const result = await createCheckoutSession(merchantId, priceId, successUrl, cancelUrl);
+    const result = await createCheckoutSession(
+      merchantId,
+      priceId,
+      (redirectContext ?? 'billing') as CheckoutRedirectContext,
+    );
 
     if (!result) {
       return res.status(503).json({ message: "Payment service not available" });
@@ -121,9 +125,7 @@ router.post("/api/subscription/checkout", authenticate, async (req, res) => {
 router.post("/api/subscription/portal", authenticate, async (req, res) => {
   try {
     const merchantId = req.user!.id;
-    const returnUrl = req.body.returnUrl || process.env.ADMIN_URL || 'http://localhost:3000/settings';
-
-    const result = await createBillingPortalSession(merchantId, returnUrl);
+    const result = await createBillingPortalSession(merchantId);
 
     if (!result) {
       return res.status(503).json({ message: "Billing portal not available. Please subscribe first." });
