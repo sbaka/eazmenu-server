@@ -1,15 +1,29 @@
 #!/usr/bin/env tsx
 
 /**
- * Standalone database initialization script
- * Run with: npm run db:init or tsx db/init-standalone.ts
+ * Standalone database migration script
+ * Run with:
+ *   npm run db:init
+ *   npm run db:migrate
+ *   npm run db:push
+ *   tsx db/init-standalone.ts [auto|migrate|push]
  */
 
-import { runDrizzleMigrations, testDatabaseConnection } from './drizzle-migrate';
+import {
+  parseSchemaSyncMode,
+  runDrizzleMigrations,
+  testDatabaseConnection,
+  type SchemaSyncMode,
+} from './drizzle-migrate';
 import { closeDatabaseConnections } from './migrate';
 
 async function main() {
-  console.log('🚀 Starting database initialization...');
+  const requestedMode = process.argv[2];
+  const mode: SchemaSyncMode = requestedMode
+    ? parseSchemaSyncMode(requestedMode)
+    : 'auto';
+
+  console.log(`🚀 Starting database initialization (${mode})...`);
   
   try {
     // Test connection first
@@ -21,7 +35,7 @@ async function main() {
     console.log('✅ Database connection established');
     
     // Run database migrations
-    await runDrizzleMigrations();
+    await runDrizzleMigrations({ mode });
     
     console.log('🎉 Database initialization completed successfully!');
     

@@ -109,7 +109,7 @@ async function setupBuckets() {
 
   console.log('✅ Storage bucket setup complete!\n');
   console.log('📝 Next steps:');
-  console.log('1. Run the RLS policies from shared/rls.sql for storage.objects table');
+  console.log('1. Run the RLS policies from db/rls.sql for storage.objects table');
   console.log('2. Test image uploads in the admin panel');
 }
 

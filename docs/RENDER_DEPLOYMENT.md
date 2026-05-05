@@ -121,6 +121,8 @@ After first deployment, run migrations:
 npm run db:migrate
 ```
 
+This command now applies the generated Drizzle migrations and then re-runs `db/rls.sql`, so the deployed service does not depend on files from the sibling `shared` repository.
+
 Or use Render's one-off job feature.
 
 ## Troubleshooting

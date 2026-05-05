@@ -59,8 +59,9 @@ npm run dev
 
 ```bash
 npm run db:generate  # Generate migrations
-npm run db:migrate   # Run migrations
-npm run db:push      # Push schema to database
+npm run db:migrate   # Apply migration files, then re-apply db/rls.sql
+npm run db:push      # Push schema, then re-apply db/rls.sql
+npm run db:init      # Auto-sync schema, then re-apply db/rls.sql
 npm run db:seed      # Seed database with sample data
 ```
 

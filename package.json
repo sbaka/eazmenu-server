@@ -9,8 +9,8 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
     "db:generate": "drizzle-kit generate --config=./drizzle.config.ts",
-    "db:migrate": "drizzle-kit migrate --config=./drizzle.config.ts",
-    "db:push": "drizzle-kit push --force --config=./drizzle.config.ts",
+    "db:migrate": "tsx db/init-standalone.ts migrate",
+    "db:push": "tsx db/init-standalone.ts push",
     "db:seed-demo": "tsx scripts/seed-demo.ts",
     "db:seed-analytics": "tsx scripts/seed-analytics.ts",
     "db:init": "tsx db/init-standalone.ts"
