@@ -6,7 +6,8 @@ This directory contains all database-related files for the restaurant SaaS appli
 
 - **`index.ts`** - Database connection setup with PostgreSQL pool
 - **`migrate.ts`** - Automatic database structure initialization
-- **`init-standalone.ts`** - Standalone script for manual database initialization
+- **`init-standalone.ts`** - Standalone script for manual database initialization and schema sync modes
+- **`rls.sql`** - Canonical row-level security policies applied after each migration run
 - **`seed.ts`** - Development data seeding (optional)
 - **`migrations/`** - Drizzle migration files (auto-generated)
 
@@ -22,8 +23,8 @@ await ensureDatabaseStructure();
 ### What it does:
 
 1. **Tests database connection** - Verifies DATABASE_URL is valid
-2. **Runs migrations** - Applies any Drizzle migration files if they exist
-3. **Creates tables manually** - If no migrations exist, creates all required tables
+2. **Synchronizes schema** - Uses Drizzle push by default and falls back to migration files
+3. **Applies RLS policies** - Re-runs `db/rls.sql` after each schema change
 4. **Verifies structure** - Ensures all required tables are present
 5. **Creates indexes** - Adds performance indexes automatically
 
@@ -44,10 +45,10 @@ npm run db:init
 # Generate migration files from schema changes
 npm run db:generate
 
-# Apply migrations to database
+# Apply migration files and then re-apply RLS policies
 npm run db:migrate
 
-# Push schema directly (force sync, use with caution)
+# Push schema directly and then re-apply RLS policies
 npm run db:push
 
 # Seed development data (optional)
@@ -95,6 +96,7 @@ For schema changes in production:
 2. **Generate migration**: `npm run db:generate`
 3. **Review migration** in `db/migrations/`
 4. **Apply migration**: `npm run db:migrate`
+5. **Review policy changes** in `db/rls.sql` when the schema update changes access rules
 
 ### Backup Strategy
 

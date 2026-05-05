@@ -36,6 +36,11 @@ const optionalPhone = z.string().refine(
   { message: 'Phone number must be at least 10 digits' }
 ).optional().nullable();
 
+const optionalCoordinate = (min: number, max: number) => z.preprocess(
+  (value) => value === '' || value === undefined ? null : value,
+  z.coerce.number().min(min).max(max).nullable().optional()
+);
+
 // Update schema for partial updates
 const updateRestaurantSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -54,6 +59,27 @@ const updateRestaurantSchema = z.object({
   timezone: z.string().optional(),
   themeConfig: themeConfigSchema,
   chefMessage: z.string().max(500).optional().nullable(),
+  orderVerificationEnabled: z.boolean().optional(),
+  latitude: optionalCoordinate(-90, 90),
+  longitude: optionalCoordinate(-180, 180),
+}).superRefine((data, ctx) => {
+  if (!data.orderVerificationEnabled) return;
+
+  if (data.latitude === null || data.latitude === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['latitude'],
+      message: 'Latitude is required when ordering verification is enabled',
+    });
+  }
+
+  if (data.longitude === null || data.longitude === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['longitude'],
+      message: 'Longitude is required when ordering verification is enabled',
+    });
+  }
 });
 
 // Get restaurants for merchant

@@ -11,6 +11,8 @@ import {
   getCancelPreview,
   downgradeSubscription,
   upgradeSubscription,
+  changeBillingInterval,
+  type CheckoutRedirectContext,
   cancelScheduledDowngrade,
   sanitizeFeaturesForJson,
 } from "../services/subscription.service";
@@ -88,8 +90,7 @@ router.get("/api/subscription", authenticate, async (req, res) => {
 // Create Stripe checkout session
 const checkoutSchema = z.object({
   priceId: z.string().min(1),
-  successUrl: z.string().url(),
-  cancelUrl: z.string().url(),
+  redirectContext: z.enum(['billing', 'dashboard']).optional(),
 });
 
 router.post("/api/subscription/checkout", authenticate, async (req, res) => {
@@ -102,10 +103,14 @@ router.post("/api/subscription/checkout", authenticate, async (req, res) => {
       });
     }
 
-    const { priceId, successUrl, cancelUrl } = validation.data;
+    const { priceId, redirectContext } = validation.data;
     const merchantId = req.user!.id;
 
-    const result = await createCheckoutSession(merchantId, priceId, successUrl, cancelUrl);
+    const result = await createCheckoutSession(
+      merchantId,
+      priceId,
+      (redirectContext ?? 'billing') as CheckoutRedirectContext,
+    );
 
     if (!result) {
       return res.status(503).json({ message: "Payment service not available" });
@@ -122,9 +127,7 @@ router.post("/api/subscription/checkout", authenticate, async (req, res) => {
 router.post("/api/subscription/portal", authenticate, async (req, res) => {
   try {
     const merchantId = req.user!.id;
-    const returnUrl = req.body.returnUrl || process.env.ADMIN_URL || 'http://localhost:3000/settings';
-
-    const result = await createBillingPortalSession(merchantId, returnUrl);
+    const result = await createBillingPortalSession(merchantId);
 
     if (!result) {
       return res.status(503).json({ message: "Billing portal not available. Please subscribe first." });
@@ -164,6 +167,47 @@ router.get("/api/subscription/cancel-preview", authenticate, async (req, res) =>
 // Downgrade subscription (Pro → Essentiel)
 const downgradeSchema = z.object({
   priceId: z.string().min(1),
+});
+
+const changeBillingIntervalSchema = z.object({
+  priceId: z.string().min(1),
+  confirmed: z.literal(true),
+});
+
+router.post("/api/subscription/upgrade", authenticate, async (req, res) => {
+  try {
+    const validation = downgradeSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: validation.error.flatten().fieldErrors,
+      });
+    }
+    const merchantId = req.user!.id;
+    const result = await upgradeSubscription(merchantId, validation.data.priceId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error(`Error upgrading subscription: ${sanitizeError(error)}`);
+    res.status(400).json({ message: error.message || "Failed to upgrade subscription" });
+  }
+});
+
+router.post("/api/subscription/change-interval", authenticate, async (req, res) => {
+  try {
+    const validation = changeBillingIntervalSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: validation.error.flatten().fieldErrors,
+      });
+    }
+    const merchantId = req.user!.id;
+    const result = await changeBillingInterval(merchantId, validation.data.priceId);
+    res.json(result);
+  } catch (error: any) {
+    logger.error(`Error changing billing interval: ${sanitizeError(error)}`);
+    res.status(400).json({ message: error.message || "Failed to change billing interval" });
+  }
 });
 
 router.post("/api/subscription/downgrade", authenticate, async (req, res) => {

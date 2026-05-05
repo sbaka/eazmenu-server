@@ -109,6 +109,9 @@ Before installing dependencies, ensure you have GitHub Package Registry access c
 - **build**: `esbuild` - Bundles the application (external packages not bundled)
 - **start**: Production server from built files
 - **check**: TypeScript type checking without emitting files
+- **db:init**: `tsx db/init-standalone.ts` - Auto-syncs schema and reapplies `db/rls.sql`
+- **db:migrate**: `tsx db/init-standalone.ts migrate` - Applies migration files and reapplies `db/rls.sql`
+- **db:push**: `tsx db/init-standalone.ts push` - Pushes schema changes and reapplies `db/rls.sql`
 
 ### Project Structure
 
@@ -146,6 +149,8 @@ This project uses Drizzle ORM with the schema defined in `@sbaka/shared`. Databa
 import { users, restaurants, tables, orders } from '@sbaka/shared';
 ```
 
+The canonical RLS policies now live in `db/rls.sql` inside the server project so deployments can apply them locally during `db:init`, `db:migrate`, and `db:push`.
+
 ## Instructions for AI Agents
 
 **⚠️ IMPORTANT: When editing configuration files in this project, you MUST update this AGENT.md file.**
@@ -166,8 +171,9 @@ This ensures the documentation stays in sync with the actual configuration and h
 ## Change Log
 
 - **February 7, 2026**: Initial AGENT.md created documenting correct @sbaka/shared dependency management and TypeScript configuration
+- **May 5, 2026**: Documented local server-owned RLS policy file and migration scripts that re-apply it after each schema sync
 
 ## Last Updated
-February 7, 2026
+May 5, 2026
 
 

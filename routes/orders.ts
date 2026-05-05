@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, and, ne, or, inArray } from "drizzle-orm";
 import { authenticate } from "../middleware";
-import { getTableSessionId } from "../middleware/session";
+import { getTableSessionId, hasValidVerifiedTableSession } from "../middleware/session";
 import { storage } from "../storage";
 import { rateLimits } from "../security";
 import { tables, orders, restaurants, menuItems } from "@sbaka/shared";
@@ -128,6 +128,21 @@ router.post("/api/orders", rateLimits.orders, async (req, res) => {
     // Verify table is active (prevent orders on disabled tables)
     if (!table.active) {
       return res.status(403).json({ message: "Table is currently unavailable for orders" });
+    }
+
+    const restaurant = await db.query.restaurants.findFirst({
+      where: eq(restaurants.id, restaurantId),
+    });
+
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found" });
+    }
+
+    if ((restaurant as any).orderVerificationEnabled && !hasValidVerifiedTableSession(req, restaurantId, tableId)) {
+      return res.status(403).json({
+        message: "Please scan the table QR code and allow location access before placing an order",
+        code: "ORDER_VERIFICATION_REQUIRED",
+      });
     }
 
     // SECURITY: Fetch actual menu item prices from database - DO NOT trust client prices

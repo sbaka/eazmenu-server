@@ -1,5 +1,5 @@
 {
-  "id": "0a02d466-7f91-4141-89aa-31c913a04f7c",
+  "id": "ec134d66-cac9-4127-8445-1c333d9a1f1f",
   "prevId": "7d4ad903-92d9-4d88-b149-68fcd62e8d87",
   "version": "7",
   "dialect": "postgresql",
@@ -201,6 +201,25 @@
         "chef_message": {
           "name": "chef_message",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "order_verification_enabled": {
+          "name": "order_verification_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "double precision",
           "primaryKey": false,
           "notNull": false
         },

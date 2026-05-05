@@ -3,11 +3,46 @@ import { db } from "@db";
 import { subscriptions, merchants, restaurants, categories, menuItems, tables, languages, menuItemTranslations, categoryTranslations, type Subscription } from "@sbaka/shared";
 import { PLAN_FEATURES, PLAN_LOOKUP_KEYS, FREE_TRIAL_DAYS, LOOKUP_KEY_TO_PLAN, getPlanFeatures, type PlanId, type PaidPlanId, type PlanFeatures } from "@sbaka/shared";
 import { getStripePrices } from "./stripe-price-cache.service";
+import { sendBillingChangeEmail } from "./transactional-email.service";
 import logger from "../logger";
 
 // Lazy-loaded Stripe instance
 let stripe: any = null;
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+export type CheckoutRedirectContext = 'billing' | 'dashboard';
+
+const CHECKOUT_REDIRECT_PATHS: Record<CheckoutRedirectContext, { successPath: string; cancelPath: string }> = {
+  billing: {
+    successPath: '/settings?tab=billing&checkout=success',
+    cancelPath: '/settings?tab=billing&checkout=cancelled',
+  },
+  dashboard: {
+    successPath: '/dashboard?checkout=success',
+    cancelPath: '/dashboard?checkout=cancelled',
+  },
+};
+
+function getAdminAppBaseUrl(): URL {
+  return new URL(process.env.ADMIN_URL ?? 'http://localhost:3000');
+}
+
+function buildTrustedAdminUrl(path: string): string {
+  return new URL(path, getAdminAppBaseUrl()).toString();
+}
+
+function getCheckoutRedirectUrls(context: CheckoutRedirectContext): { successUrl: string; cancelUrl: string } {
+  const paths = CHECKOUT_REDIRECT_PATHS[context];
+
+  return {
+    successUrl: buildTrustedAdminUrl(paths.successPath),
+    cancelUrl: buildTrustedAdminUrl(paths.cancelPath),
+  };
+}
+
+function getBillingPortalReturnUrl(): string {
+  return buildTrustedAdminUrl('/settings?tab=billing');
+}
 
 /** Safely parse a Stripe timestamp (Unix seconds or ISO string) into a Date */
 function parseStripeTimestamp(value: unknown): Date {
@@ -75,6 +110,38 @@ async function getAllowedDowngradePriceIds(): Promise<Set<string>> {
   return allowed;
 }
 
+async function resolvePriceSelection(priceId: string): Promise<{ planId: PaidPlanId; billingInterval: 'monthly' | 'yearly' } | null> {
+  const prices = await getStripePrices();
+  for (const [lookupKey, price] of prices.entries()) {
+    const plan = LOOKUP_KEY_TO_PLAN[lookupKey];
+    if (price.priceId === priceId && plan) {
+      return {
+        planId: plan.planId,
+        billingInterval: plan.interval,
+      };
+    }
+  }
+  return null;
+}
+
+async function notifyBillingChange(
+  merchantId: number,
+  input: Omit<Parameters<typeof sendBillingChangeEmail>[0], 'to' | 'customerName'>,
+): Promise<void> {
+  const merchant = await db.query.merchants.findFirst({
+    where: eq(merchants.id, merchantId),
+    columns: { email: true, displayName: true, username: true },
+  });
+
+  try {
+    await sendBillingChangeEmail({
+      to: merchant?.email ?? null,
+      customerName: merchant?.displayName ?? merchant?.username ?? 'there',
+      ...input,
+    });
+  } catch (error) {
+    logger.error(`Failed to send billing change email: ${error instanceof Error ? error.message : String(error)}`);
+  }
 async function getAllowedUpgradePriceIds(): Promise<Set<string>> {
   const prices = await getStripePrices();
   const allowedLookupKeys = [
@@ -256,6 +323,7 @@ export async function getSubscriptionWithFeatures(merchantId: number) {
       trialEndsAt: subscription.trialEndsAt,
       currentPeriodStart: subscription.currentPeriodStart,
       currentPeriodEnd: subscription.currentPeriodEnd,
+      billingInterval: subscription.billingInterval,
       cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       scheduledPlanId: subscription.scheduledPlanId,
       createdAt: subscription.createdAt,
@@ -280,8 +348,7 @@ export async function getSubscriptionWithFeatures(merchantId: number) {
 export async function createCheckoutSession(
   merchantId: number,
   priceId: string,
-  successUrl: string,
-  cancelUrl: string,
+  redirectContext: CheckoutRedirectContext,
 ): Promise<{ url: string } | null> {
   const allowedPriceIds = await getAllowedPaidPriceIds();
   if (!allowedPriceIds.has(priceId)) {
@@ -295,6 +362,15 @@ export async function createCheckoutSession(
   }
 
   const subscription = await getOrCreateSubscription(merchantId);
+  if (subscription.planId !== 'free') {
+    throw new Error('Checkout is only available for free subscriptions');
+  }
+
+  if (subscription.stripeSubscriptionId) {
+    throw new Error('A Stripe subscription is already attached to this account');
+  }
+
+  const { successUrl, cancelUrl } = getCheckoutRedirectUrls(redirectContext);
 
   // Get or create Stripe customer
   let stripeCustomerId = subscription.stripeCustomerId;
@@ -337,7 +413,7 @@ export async function createCheckoutSession(
 /**
  * Create a Stripe billing portal session
  */
-export async function createBillingPortalSession(merchantId: number, returnUrl: string): Promise<{ url: string } | null> {
+export async function createBillingPortalSession(merchantId: number): Promise<{ url: string } | null> {
   const stripeInstance = await getStripe();
   if (!stripeInstance) return null;
 
@@ -346,7 +422,7 @@ export async function createBillingPortalSession(merchantId: number, returnUrl: 
 
   const session = await stripeInstance.billingPortal.sessions.create({
     customer: subscription.stripeCustomerId,
-    return_url: returnUrl,
+    return_url: getBillingPortalReturnUrl(),
   });
 
   return { url: session.url };
@@ -404,6 +480,13 @@ export async function cancelSubscription(merchantId: number): Promise<{ cancelAt
   const { end: periodEnd } = getStripePeriodDates(updated);
   const cancelAt = periodEnd ?? subscription.currentPeriodEnd;
 
+  await notifyBillingChange(merchantId, {
+    changeType: 'cancel',
+    fromLabel: subscription.planId,
+    toLabel: 'free',
+    effectiveDate: cancelAt,
+  });
+
   logger.info(`Subscription scheduled for cancellation: merchant ${merchantId}, cancels at ${cancelAt}`);
   return { cancelAt };
 }
@@ -436,6 +519,12 @@ export async function resumeSubscription(merchantId: number): Promise<void> {
     updatedAt: new Date(),
   }).where(eq(subscriptions.merchantId, merchantId));
 
+  await notifyBillingChange(merchantId, {
+    changeType: 'resume',
+    toLabel: subscription.planId,
+    effectiveDate: subscription.currentPeriodEnd,
+  });
+
   logger.info(`Subscription cancellation reversed: merchant ${merchantId}`);
 }
 
@@ -457,6 +546,7 @@ export async function handleWebhookEvent(event: any): Promise<void> {
       const stripeSub = await stripeInstance.subscriptions.retrieve(stripeSubscriptionId);
       const priceItem = stripeSub.items.data[0]?.price;
       const stripePriceId = priceItem?.id;
+      const billingInterval = resolveBillingIntervalFromLookupKey(priceItem?.lookup_key);
 
       const planId = resolvePlanFromLookupKey(priceItem?.lookup_key);
 
@@ -466,6 +556,7 @@ export async function handleWebhookEvent(event: any): Promise<void> {
         stripeSubscriptionId,
         stripePriceId,
         planId,
+        billingInterval,
         currentPeriodStart: period.start,
         currentPeriodEnd: period.end,
         updatedAt: new Date(),
@@ -482,8 +573,13 @@ export async function handleWebhookEvent(event: any): Promise<void> {
 
       const stripeInstance = await getStripe();
       const stripeSub = await stripeInstance.subscriptions.retrieve(stripeSubId);
+      const priceItem = stripeSub.items.data[0]?.price;
+      const billingInterval = resolveBillingIntervalFromLookupKey(priceItem?.lookup_key);
 
       const period = getStripePeriodDates(stripeSub);
+      await db.update(subscriptions).set({
+        status: 'active',
+        billingInterval,
 
       // Check for a pending scheduled downgrade
       const existingSub = await db.query.subscriptions.findFirst({
@@ -532,6 +628,7 @@ export async function handleWebhookEvent(event: any): Promise<void> {
       const priceItem = stripeSub.items.data[0]?.price;
       const stripePriceId = priceItem?.id;
       const planId = resolvePlanFromLookupKey(priceItem?.lookup_key);
+      const billingInterval = resolveBillingIntervalFromLookupKey(priceItem?.lookup_key);
 
       const period = getStripePeriodDates(stripeSub);
 
@@ -549,6 +646,7 @@ export async function handleWebhookEvent(event: any): Promise<void> {
 
       const updateData: any = {
         stripePriceId,
+        billingInterval,
         cancelAtPeriodEnd: stripeSub.cancel_at_period_end,
         currentPeriodStart: period.start,
         currentPeriodEnd: period.end,
@@ -618,6 +716,13 @@ function resolvePlanFromLookupKey(lookupKey: string | null | undefined): PlanId 
     return LOOKUP_KEY_TO_PLAN[lookupKey].planId;
   }
   return 'essentiel'; // safe default for any paid Stripe subscription
+}
+
+function resolveBillingIntervalFromLookupKey(lookupKey: string | null | undefined): 'monthly' | 'yearly' | null {
+  if (lookupKey && LOOKUP_KEY_TO_PLAN[lookupKey]) {
+    return LOOKUP_KEY_TO_PLAN[lookupKey].interval;
+  }
+  return null;
 }
 
 /**
@@ -814,6 +919,13 @@ export async function upgradeSubscription(
     throw new Error('No subscription item found');
   }
 
+  const target = await resolvePriceSelection(priceId);
+  if (!target) {
+    throw new Error('Invalid downgrade price');
+  }
+
+  // Update the subscription item to the new (lower) price — prorates by default
+  const updated = await stripeInstance.subscriptions.update(subscription.stripeSubscriptionId, {
   await stripeInstance.subscriptions.update(subscription.stripeSubscriptionId, {
     items: [{ id: currentItem.id, price: priceId }],
     proration_behavior: 'none',
@@ -821,6 +933,17 @@ export async function upgradeSubscription(
     metadata: { scheduled_downgrade_from: '' },
   });
 
+  const period = getStripePeriodDates(updated);
+
+  await notifyBillingChange(merchantId, {
+    changeType: 'downgrade',
+    fromLabel: `${subscription.planId} ${subscription.billingInterval ?? ''}`.trim(),
+    toLabel: `${target.planId} ${target.billingInterval}`,
+    effectiveDate: period.end,
+  });
+
+  // Local DB update will happen via the customer.subscription.updated webhook
+  logger.info(`Pro → Essentiel downgrade initiated for merchant ${merchantId}`);
   // Update planId directly — don't rely on the webhook (which skips mid-period planId changes)
   await db.update(subscriptions).set({
     planId: 'pro',
@@ -885,5 +1008,120 @@ export async function cancelScheduledDowngrade(merchantId: number): Promise<{ su
   }).where(eq(subscriptions.merchantId, merchantId));
 
   logger.info(`Scheduled downgrade canceled for merchant ${merchantId}, staying on ${currentPlanId}`);
+  return { success: true };
+}
+
+export async function upgradeSubscription(
+  merchantId: number,
+  priceId: string,
+): Promise<{ success: boolean }> {
+  const allowedPriceIds = await getAllowedPaidPriceIds();
+  if (!allowedPriceIds.has(priceId)) {
+    throw new Error('Invalid upgrade price');
+  }
+
+  const stripeInstance = await getStripe();
+  const subscription = await getSubscription(merchantId);
+  const target = await resolvePriceSelection(priceId);
+
+  if (!subscription || subscription.planId === 'free') {
+    throw new Error('No active paid subscription found');
+  }
+
+  if (!target) {
+    throw new Error('Invalid upgrade price');
+  }
+
+  const planOrder = ['free', 'essentiel', 'pro'];
+  if (planOrder.indexOf(target.planId) <= planOrder.indexOf(subscription.planId)) {
+    throw new Error('Target plan is not an upgrade');
+  }
+
+  if (!stripeInstance || !subscription.stripeSubscriptionId) {
+    throw new Error('Cannot upgrade: no active Stripe subscription');
+  }
+
+  const stripeSub = await stripeInstance.subscriptions.retrieve(subscription.stripeSubscriptionId);
+  const currentItem = stripeSub.items.data[0];
+  if (!currentItem) {
+    throw new Error('No subscription item found');
+  }
+
+  const updated = await stripeInstance.subscriptions.update(subscription.stripeSubscriptionId, {
+    items: [{ id: currentItem.id, price: priceId }],
+    proration_behavior: 'create_prorations',
+    cancel_at_period_end: false,
+  });
+  const period = getStripePeriodDates(updated);
+
+  await notifyBillingChange(merchantId, {
+    changeType: 'upgrade',
+    fromLabel: `${subscription.planId} ${subscription.billingInterval ?? ''}`.trim(),
+    toLabel: `${target.planId} ${target.billingInterval}`,
+    effectiveDate: period.end,
+  });
+
+  logger.info(`Subscription upgrade initiated for merchant ${merchantId}: ${subscription.planId} -> ${target.planId}`);
+  return { success: true };
+}
+
+export async function changeBillingInterval(
+  merchantId: number,
+  priceId: string,
+): Promise<{ success: boolean }> {
+  const allowedPriceIds = await getAllowedPaidPriceIds();
+  if (!allowedPriceIds.has(priceId)) {
+    throw new Error('Invalid billing interval price');
+  }
+
+  const stripeInstance = await getStripe();
+  const subscription = await getSubscription(merchantId);
+  const target = await resolvePriceSelection(priceId);
+
+  if (!subscription || subscription.planId === 'free') {
+    throw new Error('No active paid subscription found');
+  }
+
+  if (!target || target.planId !== subscription.planId) {
+    throw new Error('Billing interval changes must keep the same plan');
+  }
+
+  if (subscription.billingInterval === target.billingInterval) {
+    throw new Error('Billing interval is already active');
+  }
+
+  if (!stripeInstance || !subscription.stripeSubscriptionId) {
+    throw new Error('Cannot change billing interval: no active Stripe subscription');
+  }
+
+  const stripeSub = await stripeInstance.subscriptions.retrieve(subscription.stripeSubscriptionId);
+  const currentItem = stripeSub.items.data[0];
+  if (!currentItem) {
+    throw new Error('No subscription item found');
+  }
+
+  const updated = await stripeInstance.subscriptions.update(subscription.stripeSubscriptionId, {
+    items: [{ id: currentItem.id, price: priceId }],
+    proration_behavior: 'create_prorations',
+    cancel_at_period_end: false,
+  });
+  const period = getStripePeriodDates(updated);
+
+  await db.update(subscriptions).set({
+    stripePriceId: priceId,
+    billingInterval: target.billingInterval,
+    currentPeriodStart: period.start,
+    currentPeriodEnd: period.end,
+    updatedAt: new Date(),
+  }).where(eq(subscriptions.merchantId, merchantId));
+
+  await notifyBillingChange(merchantId, {
+    changeType: 'interval_change',
+    fromLabel: `${subscription.planId} ${subscription.billingInterval ?? 'current billing'}`,
+    toLabel: `${subscription.planId} ${target.billingInterval}`,
+    effectiveDate: period.end,
+  });
+
+  logger.info(`Billing interval changed for merchant ${merchantId}: ${subscription.billingInterval} -> ${target.billingInterval}`);
   return { success: true };
 }

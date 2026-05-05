@@ -2,10 +2,13 @@ import { Router } from "express";
 import { storage } from "../storage";
 import logger, { sanitizeError } from "../logger";
 import type { CustomerMenuResponse } from "@sbaka/shared";
-import { languages as langTable, restaurants, tables } from "@sbaka/shared";
+import { languages as langTable, restaurants } from "@sbaka/shared";
 import { authenticate } from "../middleware";
 import { db } from "@db";
 import { eq, and, desc } from "drizzle-orm";
+import { z } from "zod";
+import { findTableByQrCode } from "../services/qr-code-service";
+import { refreshVerifiedTableSession } from "../middleware/session";
 
 // Import services
 import {
@@ -18,6 +21,40 @@ import {
 } from "../services";
 
 const router = Router();
+const DEFAULT_ORDER_GPS_RADIUS_METERS = 150;
+const MAX_GPS_ACCURACY_ALLOWANCE_METERS = 75;
+
+const tableSessionRefreshSchema = z.object({
+  qrCode: z.string().min(3).max(100),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  accuracy: z.number().min(0).max(5000).optional(),
+});
+
+function getOrderGpsRadiusMeters(): number {
+  const configured = Number(process.env.ORDER_GPS_RADIUS_METERS);
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_ORDER_GPS_RADIUS_METERS;
+}
+
+function toRadians(value: number): number {
+  return value * Math.PI / 180;
+}
+
+function getDistanceMeters(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
+  const earthRadiusMeters = 6371000;
+  const deltaLat = toRadians(b.latitude - a.latitude);
+  const deltaLon = toRadians(b.longitude - a.longitude);
+  const lat1 = toRadians(a.latitude);
+  const lat2 = toRadians(b.latitude);
+
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
 
 // =============================================================================
 // API DOCUMENTATION
@@ -115,31 +152,7 @@ router.get("/api/customer/restaurants", async (_req, res) => {
       orderBy: [restaurants.name],
     });
 
-    // For each restaurant, grab the first active table's QR code so
-    // customers can navigate directly from the discovery list.
-    const restaurantIds = allRestaurants.map(r => r.id);
-    const activeTables = restaurantIds.length > 0
-      ? await db.query.tables.findMany({
-          columns: { restaurantId: true, qrCode: true },
-          where: eq(tables.active, true),
-          orderBy: tables.number,
-        })
-      : [];
-
-    // Build a map: restaurantId → first active QR code
-    const qrMap = new Map<number, string>();
-    for (const t of activeTables) {
-      if (!qrMap.has(t.restaurantId)) {
-        qrMap.set(t.restaurantId, t.qrCode);
-      }
-    }
-
-    const result = allRestaurants.map(r => ({
-      ...r,
-      qrCode: qrMap.get(r.id) ?? null,
-    }));
-
-    return res.json(result);
+    return res.json(allRestaurants);
   } catch (error) {
     logger.error(`Error listing restaurants: ${sanitizeError(error)}`);
     return handleServerError(res);
@@ -217,6 +230,108 @@ router.get("/api/customer/menu-data", async (req, res) => {
   }
 });
 
+// Browse-only menu API via restaurant ID. This is used by discovery and never
+// grants an order-capable table session.
+router.get("/api/customer/menu-by-restaurant", async (req, res) => {
+  try {
+    const restaurantIdParam = req.query.restaurantId as string;
+    const languageCodeParam = req.query.lang as string;
+
+    const restaurantId = Number(restaurantIdParam);
+    if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+      return res.status(400).json({ error: "MISSING_RESTAURANT_ID", message: "restaurantId query parameter is required" });
+    }
+
+    const languageCode = validateLanguageCode(languageCodeParam, DEFAULT_LANGUAGE);
+    const menuData: CustomerMenuResponse = await storage.getMenuByRestaurantId(restaurantId, languageCode);
+
+    return res.json(menuData);
+  } catch (error) {
+    logger.error(`Error fetching browse menu: ${sanitizeError(error)}`);
+    return handleMenuError(error, res);
+  }
+});
+
+router.post("/api/customer/table-session/refresh", async (req, res) => {
+  try {
+    const validation = tableSessionRefreshSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        message: "Invalid location verification data",
+        errors: validation.error.flatten().fieldErrors,
+      });
+    }
+
+    const { qrCode, latitude, longitude, accuracy } = validation.data;
+    const lookupResult = await findTableByQrCode(qrCode);
+
+    if (!lookupResult.isValid || !lookupResult.table) {
+      return res.status(404).json({ message: "Invalid QR code" });
+    }
+
+    const table = lookupResult.table;
+    if (!table.active) {
+      return res.status(403).json({ message: "Table is currently unavailable for orders" });
+    }
+
+    const restaurant = await db.query.restaurants.findFirst({
+      where: eq(restaurants.id, table.restaurantId),
+    });
+
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found" });
+    }
+
+    if (!(restaurant as any).orderVerificationEnabled) {
+      const session = refreshVerifiedTableSession(req, restaurant.id, table.id);
+      return res.json({
+        verified: true,
+        required: false,
+        restaurantId: restaurant.id,
+        tableId: table.id,
+        expiresAt: session ? new Date(session.expiresAt).toISOString() : null,
+      });
+    }
+
+    const restaurantLatitude = (restaurant as any).latitude;
+    const restaurantLongitude = (restaurant as any).longitude;
+
+    if (typeof restaurantLatitude !== 'number' || typeof restaurantLongitude !== 'number') {
+      return res.status(403).json({
+        message: "Ordering verification is enabled, but restaurant GPS coordinates are not configured",
+      });
+    }
+
+    const distanceMeters = getDistanceMeters(
+      { latitude: restaurantLatitude, longitude: restaurantLongitude },
+      { latitude, longitude }
+    );
+    const radiusMeters = getOrderGpsRadiusMeters();
+    const accuracyAllowance = Math.min(accuracy ?? 0, MAX_GPS_ACCURACY_ALLOWANCE_METERS);
+
+    if (distanceMeters > radiusMeters + accuracyAllowance) {
+      return res.status(403).json({
+        message: "You need to be at the restaurant to place an order",
+        distanceMeters: Math.round(distanceMeters),
+        radiusMeters,
+      });
+    }
+
+    const session = refreshVerifiedTableSession(req, restaurant.id, table.id);
+
+    return res.json({
+      verified: true,
+      required: true,
+      restaurantId: restaurant.id,
+      tableId: table.id,
+      expiresAt: session ? new Date(session.expiresAt).toISOString() : null,
+    });
+  } catch (error) {
+    logger.error(`Error refreshing table session: ${sanitizeError(error)}`);
+    return handleServerError(res);
+  }
+});
+
 // =============================================================================
 // PREVIEW ENDPOINT — Authenticated, for admin visual editor iframe
 // =============================================================================
@@ -291,6 +406,7 @@ router.get(
           themeConfig: restaurant.themeConfig ?? null,
           currency: restaurant.currency ?? 'USD',
           currencySymbol: getCurrencySymbol(restaurant.currency ?? 'USD'),
+          orderVerificationEnabled: (restaurant as any).orderVerificationEnabled ?? false,
           bannerUrl: restaurant.bannerUrl ?? null,
           logoUrl: restaurant.logoUrl ?? null,
           googleMapsUrl: restaurant.googleMapsUrl ?? null,

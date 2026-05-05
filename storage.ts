@@ -152,8 +152,9 @@ interface IStorage {
   // Updated order method with transaction support
   createOrderWithItems: (params: CreateOrderWithItemsParams) => Promise<typeof orders.$inferSelect>;
 
-  // Menu by table QR code with language support
+  // Menu by table QR code or restaurant with language support
   getMenuByTableQrCode: (qrCode: string, languageCode?: string) => Promise<any>;
+  getMenuByRestaurantId: (restaurantId: number, languageCode?: string) => Promise<any>;
 }
 
 class DatabaseStorage implements IStorage {
@@ -1046,6 +1047,31 @@ class DatabaseStorage implements IStorage {
     });
   }
 
+  async getMenuByRestaurantId(restaurantId: number, languageCode?: string): Promise<import('@sbaka/shared').CustomerMenuResponse> {
+    const table = await db.query.tables.findFirst({
+      where: and(
+        eq(tables.restaurantId, restaurantId),
+        eq(tables.active, true)
+      ),
+      orderBy: tables.number,
+    });
+
+    if (!table) {
+      throw new Error("TABLE_NOT_FOUND");
+    }
+
+    const menuData = await this.getMenuByTableQrCode(table.qrCode, languageCode);
+
+    return {
+      ...menuData,
+      table: {
+        id: 0,
+        number: 0,
+        seats: 0,
+      },
+    };
+  }
+
   // Get menu by table QR code with comprehensive language support
   async getMenuByTableQrCode(qrCode: string, languageCode?: string): Promise<import('@sbaka/shared').CustomerMenuResponse> {
     try {
@@ -1133,6 +1159,7 @@ class DatabaseStorage implements IStorage {
             themeConfig: restaurant.themeConfig ?? null,
             currency: restaurant.currency ?? 'USD',
             currencySymbol: getCurrencySymbol(restaurant.currency),
+            orderVerificationEnabled: (restaurant as any).orderVerificationEnabled ?? false,
             bannerUrl: restaurant.bannerUrl ?? null,
             logoUrl: restaurant.logoUrl ?? null,
             googleMapsUrl: restaurant.googleMapsUrl ?? null,
@@ -1299,6 +1326,7 @@ class DatabaseStorage implements IStorage {
           themeConfig: restaurant.themeConfig ?? null,
           currency: restaurant.currency ?? 'USD',
           currencySymbol: getCurrencySymbol(restaurant.currency),
+          orderVerificationEnabled: (restaurant as any).orderVerificationEnabled ?? false,
           bannerUrl: restaurant.bannerUrl ?? null,
           logoUrl: restaurant.logoUrl ?? null,
           googleMapsUrl: restaurant.googleMapsUrl ?? null,
@@ -1332,6 +1360,7 @@ class DatabaseStorage implements IStorage {
 
       // Re-throw known errors
       if (error instanceof Error && [
+        "INVALID_QR_CODE",
         "TABLE_NOT_FOUND",
         "TABLE_INACTIVE",
         "RESTAURANT_NOT_FOUND",
